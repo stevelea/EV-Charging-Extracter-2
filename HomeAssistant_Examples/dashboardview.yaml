@@ -1,0 +1,454 @@
+views:
+  - title: Home
+    type: masonry
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: horizontal-stack
+            cards:
+              - type: entity
+                entity: sensor.ev_total_cost_rounded
+                name: Total Cost
+                icon: mdi:currency-usd
+              - type: entity
+                entity: sensor.ev_total_energy_rounded
+                name: Total Energy
+                icon: mdi:lightning-bolt
+          - type: horizontal-stack
+            cards:
+              - type: entity
+                entity: sensor.ev_average_cost_per_kwh_rounded
+                name: Avg Cost/kWh
+                icon: mdi:currency-usd
+              - type: entity
+                entity: sensor.ev_database_test
+                name: Total Sessions
+                icon: mdi:receipt
+      - type: vertical-stack
+        cards:
+          - type: horizontal-stack
+            cards:
+              - type: entity
+                entity: sensor.ev_monthly_cost_rounded
+                name: This Month Cost
+                icon: mdi:calendar-month
+              - type: entity
+                entity: sensor.ev_monthly_energy_rounded
+                name: This Month Energy
+                icon: mdi:lightning-bolt
+          - type: horizontal-stack
+            cards:
+              - type: entity
+                entity: sensor.ev_home_monthly_cost_rounded
+                name: Month Home Charging
+                icon: mdi:home-lightning-bolt
+              - type: entity
+                entity: sensor.ev_public_monthly_cost_rounded
+                name: Month Public Charging
+                icon: mdi:ev-station
+      - type: entities
+        title: Last Charging Session
+        entities:
+          - sensor.ev_latest_date
+          - sensor.ev_latest_provider
+          - sensor.ev_latest_energy_rounded
+          - sensor.ev_latest_cost_rounded
+          - sensor.ev_latest_location
+      - type: history-graph
+        title: Monthly Cost Trend
+        hours_to_show: 720
+        entities:
+          - sensor.ev_monthly_cost_rounded
+      - type: history-graph
+        title: Monthly Energy Usage
+        hours_to_show: 720
+        entities:
+          - sensor.ev_monthly_energy_rounded
+      - type: history-graph
+        title: Average Cost per kWh
+        hours_to_show: 720
+        entities:
+          - sensor.ev_average_cost_per_kwh_rounded
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.ev_home_monthly_cost_rounded
+            name: Home Charging
+            min: 0
+            max: 500
+          - type: gauge
+            entity: sensor.ev_public_monthly_cost_rounded
+            name: Public Charging
+            min: 0
+            max: 500
+      - type: entities
+        title: Provider Monthly Summary
+        entities:
+          - entity: sensor.ev_tesla_monthly_rounded
+            name: Tesla Cost
+            icon: mdi:car-electric
+          - entity: sensor.ev_tesla_sessions
+            name: Tesla Sessions
+            icon: mdi:counter
+          - entity: sensor.ev_chargefox_monthly_rounded
+            name: Chargefox Cost
+            icon: mdi:ev-station
+          - entity: sensor.ev_chargefox_sessions
+            name: Chargefox Sessions
+            icon: mdi:counter
+          - entity: sensor.ev_evie_monthly_rounded
+            name: EVIE Cost
+            icon: mdi:ev-station
+          - entity: sensor.ev_evie_sessions
+            name: EVIE Sessions
+            icon: mdi:counter
+          - entity: sensor.ev_bp_pulse_monthly_rounded
+            name: BP Pulse Cost
+            icon: mdi:ev-station
+          - entity: sensor.ev_bp_pulse_sessions
+            name: BP Pulse Sessions
+            icon: mdi:counter
+          - entity: sensor.ev_ampol_monthly_rounded
+            name: Ampol Cost
+            icon: mdi:ev-station
+          - entity: sensor.ev_ampol_sessions
+            name: Ampol Sessions
+            icon: mdi:counter
+          - entity: sensor.ev_home_monthly_cost_rounded
+            name: Home Charging Cost
+            icon: mdi:home-lightning-bolt
+      - type: entities
+        title: 🛠️ Data Management
+        entities:
+          - type: button
+            name: Export Fresh CSV
+            icon: mdi:export
+            tap_action:
+              action: call-service
+              service: ev_charging_extractor.export_to_csv
+          - type: button
+            name: Refresh Database Stats
+            icon: mdi:refresh
+            tap_action:
+              action: call-service
+              service: ev_charging_extractor.get_database_stats
+          - type: weblink
+            name: Download CSV File
+            url: /local/ev_charging_receipts.csv
+            icon: mdi:download
+          - entity: sensor.ev_database_test
+            name: Total Sessions in Database
+          - entity: sensor.ev_latest_provider
+            name: Latest Session Provider
+      - type: markdown
+        title: 📈 Monthly Summary
+        content: >
+          ## This Month's Charging
+
+
+          | Metric | Value |
+
+          |--------|-------|
+
+          | **Total Sessions** | {{ states('sensor.ev_monthly_sessions') }} |
+
+          | **Total Cost** | ${{ states('sensor.ev_monthly_cost_rounded') }} |
+
+          | **Total Energy** | {{ states('sensor.ev_monthly_energy_rounded') }}
+          kWh |
+
+          | **Home Cost** | ${{ states('sensor.ev_home_monthly_cost_rounded') }}
+          |
+
+          | **Public Cost** | ${{
+          states('sensor.ev_public_monthly_cost_rounded') }} |
+
+          | **Average per kWh** | ${{
+          states('sensor.ev_average_cost_per_kwh_rounded') }} |
+
+
+          ## All-Time Totals
+
+
+          | Metric | Value |
+
+          |--------|-------|
+
+          | **Total Sessions** | {{ states('sensor.ev_database_test') }} |
+
+          | **Total Cost** | ${{ states('sensor.ev_total_cost_rounded') }} |
+
+          | **Total Energy** | {{ states('sensor.ev_total_energy_rounded') }}
+          kWh |
+
+
+          ## Latest Session
+
+
+          **{{ states('sensor.ev_latest_date') }}** at **{{
+          states('sensor.ev_latest_provider') }}**  
+
+          💰 Cost: ${{ states('sensor.ev_latest_cost_rounded') }} • ⚡ Energy: {{
+          states('sensor.ev_latest_energy_rounded') }} kWh  
+
+          📍 Location: {{ states('sensor.ev_latest_location') }}
+      - type: glance
+        title: Quick Session Overview
+        entities:
+          - entity: sensor.ev_latest_provider
+            name: Last Provider
+          - entity: sensor.ev_latest_cost_rounded
+            name: Last Cost
+          - entity: sensor.ev_latest_energy_rounded
+            name: Last Energy
+          - entity: sensor.ev_latest_date
+            name: Last Date
+      - type: entities
+        title: 📊 EV Charging Overview
+        entities:
+          - type: section
+            label: This Month (37 sessions)
+          - entity: sensor.ev_monthly_cost_rounded
+            name: Total Cost
+            icon: mdi:currency-usd
+          - entity: sensor.ev_monthly_energy_rounded
+            name: Total Energy
+            icon: mdi:lightning-bolt
+          - entity: sensor.ev_home_monthly_cost_rounded
+            name: Home Charging
+            icon: mdi:home-lightning-bolt
+          - entity: sensor.ev_public_monthly_cost_rounded
+            name: Public Charging
+            icon: mdi:ev-station
+          - type: section
+            label: All Time (217 sessions)
+          - entity: sensor.ev_total_cost_rounded
+            name: Total Cost
+            icon: mdi:currency-usd
+          - entity: sensor.ev_total_energy_rounded
+            name: Total Energy
+            icon: mdi:lightning-bolt
+          - entity: sensor.ev_average_cost_per_kwh_rounded
+            name: Average $/kWh
+            icon: mdi:calculator
+      - type: entities
+        title: 🔋 Latest Charging Session
+        entities:
+          - entity: sensor.ev_latest_provider
+            name: Provider
+            icon: mdi:ev-station
+          - entity: sensor.ev_latest_cost_rounded
+            name: Cost
+            icon: mdi:currency-usd
+          - entity: sensor.ev_latest_energy_rounded
+            name: Energy
+            icon: mdi:lightning-bolt
+          - entity: sensor.ev_latest_location
+            name: Location
+            icon: mdi:map-marker
+      - type: markdown
+        title: 🏆 Monthly Provider Breakdown
+        content: >
+          | Provider | Cost | Sessions | Avg per Session |
+
+          |----------|------|----------|-----------------|
+
+          | **Chargefox** | ${{ states('sensor.ev_chargefox_monthly_rounded') }}
+          | {{ states('sensor.ev_chargefox_sessions') }} | ${{
+          (states('sensor.ev_chargefox_monthly_rounded') | float(0) /
+          states('sensor.ev_chargefox_sessions') | float(1)) | round(2) }} |
+
+          | **Home (EVCC)** | ${{ states('sensor.ev_home_monthly_cost_rounded')
+          }} | - | - |
+
+          | **Tesla** | ${{ states('sensor.ev_tesla_monthly_rounded') }} | {{
+          states('sensor.ev_tesla_sessions') }} | ${{
+          (states('sensor.ev_tesla_monthly_rounded') | float(0) /
+          states('sensor.ev_tesla_sessions') | float(1)) | round(2) }} |
+
+          | **EVIE Networks** | ${{ states('sensor.ev_evie_monthly_rounded') }}
+          | {{ states('sensor.ev_evie_sessions') }} | ${{
+          (states('sensor.ev_evie_monthly_rounded') | float(0) /
+          states('sensor.ev_evie_sessions') | float(1)) | round(2) }} |
+
+          | **BP Pulse** | ${{ states('sensor.ev_bp_pulse_monthly_rounded') }} |
+          {{ states('sensor.ev_bp_pulse_sessions') }} | - |
+
+          | **Ampol** | ${{ states('sensor.ev_ampol_monthly_rounded') }} | {{
+          states('sensor.ev_ampol_sessions') }} | - |
+
+
+          **This Month Total:** ${{ states('sensor.ev_monthly_cost_rounded') }}
+          across {{ states('sensor.ev_monthly_sessions') }} sessions
+
+
+          **Home vs Public:** {{ ((states('sensor.ev_home_monthly_cost_rounded')
+          | float(0)) / (states('sensor.ev_monthly_cost_rounded') | float(1)) *
+          100) | round(1) }}% Home, {{
+          ((states('sensor.ev_public_monthly_cost_rounded') | float(0)) /
+          (states('sensor.ev_monthly_cost_rounded') | float(1)) * 100) |
+          round(1) }}% Public
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Monthly Charging Cost by Provider
+        series:
+          - entity: sensor.ev_chargefox_monthly_rounded
+            name: Chargefox
+            color: '#4CAF50'
+          - entity: sensor.ev_home_monthly_cost_rounded
+            name: Home (EVCC)
+            color: '#607D8B'
+          - entity: sensor.ev_tesla_monthly_rounded
+            name: Tesla
+            color: '#DC143C'
+          - entity: sensor.ev_evie_monthly_rounded
+            name: EVIE Networks
+            color: '#2196F3'
+          - entity: sensor.ev_bp_pulse_monthly_rounded
+            name: BP Pulse
+            color: '#FF9800'
+          - entity: sensor.ev_ampol_monthly_rounded
+            name: Ampol
+            color: '#9C27B0'
+        apex_config:
+          chart:
+            type: bar
+            height: 350
+          plotOptions:
+            bar:
+              horizontal: false
+              columnWidth: 65%
+          dataLabels:
+            enabled: true
+            formatter: |
+              EVAL:function(val) {
+                return val > 0 ? '$' + val.toFixed(2) : '';
+              }
+          yaxis:
+            title:
+              text: Cost (AUD)
+          title:
+            text: Monthly Cost by Provider
+            align: center
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Monthly Sessions by Provider
+        series:
+          - entity: sensor.ev_chargefox_sessions
+            name: Chargefox
+            color: '#4CAF50'
+          - entity: sensor.ev_tesla_sessions
+            name: Tesla
+            color: '#DC143C'
+          - entity: sensor.ev_evie_sessions
+            name: EVIE Networks
+            color: '#2196F3'
+          - entity: sensor.ev_bp_pulse_sessions
+            name: BP Pulse
+            color: '#FF9800'
+          - entity: sensor.ev_ampol_sessions
+            name: Ampol
+            color: '#9C27B0'
+        apex_config:
+          chart:
+            type: bar
+            height: 350
+          plotOptions:
+            bar:
+              horizontal: false
+              columnWidth: 65%
+          dataLabels:
+            enabled: true
+            formatter: |
+              EVAL:function(val) {
+                return val > 0 ? val.toString() : '';
+              }
+          yaxis:
+            title:
+              text: Sessions
+          title:
+            text: Monthly Sessions by Provider
+            align: center
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Home vs Public Split
+        chart_type: donut
+        series:
+          - entity: sensor.ev_home_monthly_cost_rounded
+            name: Home
+          - entity: sensor.ev_public_monthly_cost_rounded
+            name: Public
+        apex_config:
+          legend:
+            show: true
+            position: bottom
+          colors:
+            - '#4CAF50'
+            - '#FF5722'
+          plotOptions:
+            pie:
+              donut:
+                labels:
+                  show: true
+                  total:
+                    show: true
+                    formatter: |
+                      EVAL:function(w) {
+                        return '$' + w.globals.seriesTotals.reduce((a, b) => a + b, 0).toFixed(2);
+                      }
+      - type: markdown
+        title: 📈 EV Charging Summary
+        content: >
+          ## 🔋 This Month's Performance
+
+
+          **You've spent ${{ states('sensor.ev_monthly_cost_rounded') }}**
+          across **{{ states('sensor.ev_monthly_sessions') }} charging
+          sessions** this month.
+
+
+          ### 🏠 vs 🏢 Charging Split
+
+          - **Home:** ${{ states('sensor.ev_home_monthly_cost_rounded') }} ({{
+          ((states('sensor.ev_home_monthly_cost_rounded') | float(0)) /
+          (states('sensor.ev_monthly_cost_rounded') | float(1)) * 100) |
+          round(1) }}%)
+
+          - **Public:** ${{ states('sensor.ev_public_monthly_cost_rounded') }}
+          ({{ ((states('sensor.ev_public_monthly_cost_rounded') | float(0)) /
+          (states('sensor.ev_monthly_cost_rounded') | float(1)) * 100) |
+          round(1) }}%)
+
+
+          ### 🏆 Your Top Providers This Month
+
+          1. **Chargefox:** ${{ states('sensor.ev_chargefox_monthly_rounded') }}
+          ({{ states('sensor.ev_chargefox_sessions') }} sessions)
+
+          2. **Tesla:** ${{ states('sensor.ev_tesla_monthly_rounded') }} ({{
+          states('sensor.ev_tesla_sessions') }} sessions)
+
+          3. **EVIE:** ${{ states('sensor.ev_evie_monthly_rounded') }} ({{
+          states('sensor.ev_evie_sessions') }} session)
+
+
+          ### 📊 All-Time Stats
+
+          - **Total Sessions:** {{ states('sensor.ev_database_test') }}
+
+          - **Total Spent:** ${{ states('sensor.ev_total_cost_rounded') }}
+
+          - **Total Energy:** {{ states('sensor.ev_total_energy_rounded') }} kWh
+
+          - **Average Rate:** ${{
+          states('sensor.ev_average_cost_per_kwh_rounded') }}/kWh
+
+
+          ### 🎯 Latest Session
+
+          **{{ states('sensor.ev_latest_provider') }}** - ${{
+          states('sensor.ev_latest_cost_rounded') }} for {{
+          states('sensor.ev_latest_energy_rounded') }} kWh

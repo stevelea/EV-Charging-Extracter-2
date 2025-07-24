@@ -1,0 +1,84 @@
+- sensor:
+    - name: "EV Efficiency Score"
+      unit_of_measurement: "score"
+      state: >
+        {% set home_cost = states('sensor.home_charging_monthly') | float(0) %}
+        {% set public_cost = states('sensor.public_charging_monthly') | float(0) %}
+        {% set total_cost = home_cost + public_cost %}
+        {% if total_cost > 0 %}
+          {{ ((home_cost / total_cost) * 100) | round(1) }}
+        {% else %}
+          0
+        {% endif %}
+      attributes:
+        friendly_name: "Home Charging Efficiency"
+        icon: mdi:percent
+
+    - name: "Cost per Session"
+      unit_of_measurement: "$/session"
+      state: >
+        {% set total_cost = states('sensor.total_cost') | float(0) %}
+        {% set total_sessions = states('sensor.total_receipts') | float(1) %}
+        {{ (total_cost / total_sessions) | round(2) }}
+      attributes:
+        friendly_name: "Average Cost per Session"
+        icon: mdi:calculator
+
+    - name: "Energy per Session"
+      unit_of_measurement: "kWh/session"
+      state: >
+        {% set total_energy = states('sensor.total_energy') | float(0) %}
+        {% set total_sessions = states('sensor.total_receipts') | float(1) %}
+        {{ (total_energy / total_sessions) | round(2) }}
+      attributes:
+        friendly_name: "Average Energy per Session"
+        icon: mdi:lightning-bolt-circle
+
+    - name: "Monthly Savings vs Public"
+      unit_of_measurement: "$"
+      state: >
+        {% set home_energy = states('sensor.home_charging_monthly') | float(0) %}
+        {% set avg_cost = states('sensor.average_cost_per_kwh') | float(0) %}
+        {% set public_rate = 0.35 %}
+        {% if avg_cost > 0 %}
+          {{ ((public_rate - avg_cost) * home_energy) | round(2) }}
+        {% else %}
+          0
+        {% endif %}
+      attributes:
+        friendly_name: "Monthly Savings vs Public"
+        icon: mdi:piggy-bank
+
+    - name: "Provider Usage Summary"
+      state: >
+        {{ states('sensor.top_provider') }}
+      attributes:
+        last_provider: "{{ states('sensor.last_session_provider') }}"
+        total_sessions: "{{ states('sensor.total_receipts') }}"
+        friendly_name: "Provider Usage Summary"
+        icon: mdi:chart-bar
+
+    - name: "Home vs Public Ratio"
+      unit_of_measurement: "%"
+      state: >
+        {% set home = states('sensor.home_charging_monthly') | float(0) %}
+        {% set public = states('sensor.public_charging_monthly') | float(0) %}
+        {% set total = home + public %}
+        {% if total > 0 %}
+          {{ ((home / total) * 100) | round(1) }}
+        {% else %}
+          0
+        {% endif %}
+      attributes:
+        home_percentage: >
+          {% set home = states('sensor.home_charging_monthly') | float(0) %}
+          {% set public = states('sensor.public_charging_monthly') | float(0) %}
+          {% set total = home + public %}
+          {% if total > 0 %}{{ ((home / total) * 100) | round(1) }}{% else %}0{% endif %}
+        public_percentage: >
+          {% set home = states('sensor.home_charging_monthly') | float(0) %}
+          {% set public = states('sensor.public_charging_monthly') | float(0) %}
+          {% set total = home + public %}
+          {% if total > 0 %}{{ ((public / total) * 100) | round(1) }}{% else %}0{% endif %}
+        friendly_name: "Home vs Public Charging Ratio"
+        icon: mdi:percent
