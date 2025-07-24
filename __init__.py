@@ -1,5 +1,5 @@
 """
-EV Charging Receipt Extractor - Native Home Assistant Integration with Tesla PDF Support
+EV Charging Receipt Extractor - Complete integration with Tesla support and date correction
 """
 import asyncio
 import logging
@@ -37,7 +37,7 @@ SERVICE_CLEAR_AND_REPROCESS_SCHEMA = vol.Schema({
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up EV Charging Receipt Extractor from a config entry."""
+    """Set up EV Charging Receipt Extractor from a config entry with Tesla support and date correction."""
     hass.data.setdefault(DOMAIN, {})
     
     # Combine data and options for configuration
@@ -64,7 +64,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Setup platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
-    # Setup services with Tesla support
+    # Setup services with Tesla support and date correction
     await _async_setup_services(hass, processor)
     
     # Schedule automatic updates
@@ -90,15 +90,26 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    # Remove all services including Tesla services
-    hass.services.async_remove(DOMAIN, "trigger_extraction")
-    hass.services.async_remove(DOMAIN, "debug_email_parsing")
-    hass.services.async_remove(DOMAIN, "debug_evcc_connection")
-    hass.services.async_remove(DOMAIN, "export_to_csv")
-    hass.services.async_remove(DOMAIN, "get_database_stats")
-    hass.services.async_remove(DOMAIN, "clear_and_reprocess")
-    hass.services.async_remove(DOMAIN, "debug_tesla_pdfs")
-    hass.services.async_remove(DOMAIN, "process_tesla_pdfs")
+    # Remove all services including Tesla and date correction services
+    services_to_remove = [
+        "trigger_extraction",
+        "debug_email_parsing", 
+        "debug_evcc_connection",
+        "export_to_csv",
+        "get_database_stats",
+        "clear_and_reprocess",
+        "debug_tesla_pdfs",
+        "process_tesla_pdfs",
+        "fix_receipt_dates",
+        "analyze_date_issues",
+        "debug_tesla_emails"
+    ]
+    
+    for service in services_to_remove:
+        try:
+            hass.services.async_remove(DOMAIN, service)
+        except Exception:
+            pass  # Service might not exist
     
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
@@ -108,7 +119,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProcessor) -> None:
-    """Setup services for the integration with Tesla PDF support."""
+    """Setup services for the integration with Tesla support and date correction."""
+    
+    # Import date corrector
+    try:
+        from .date_corrector import DateCorrector
+        date_corrector = DateCorrector(processor.db_path)
+        _LOGGER.info("Date corrector initialized")
+    except ImportError:
+        date_corrector = None
+        _LOGGER.warning("Date corrector not available - create date_corrector.py for date correction features")
     
     async def trigger_extraction(call: ServiceCall):
         """Service to trigger manual extraction with optional day override."""
@@ -268,6 +288,152 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
                 }
             )
     
+    async def debug_tesla_emails(call: ServiceCall):
+        """Service to debug Tesla email processing specifically."""
+        _LOGGER.info("Tesla email debug triggered")
+        try:
+            # Call the regular email debug but specifically mention Tesla emails
+            await hass.async_add_executor_job(processor.debug_email_parsing, 7)
+            
+            await hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "Tesla Email Debug Complete",
+                    "message": "Check the logs for Tesla email parsing information. Look for emails from stevelea@gmail.com with Tesla Charging subject.",
+                    "notification_id": "tesla_email_debug_complete"
+                }
+            )
+            
+        except Exception as e:
+            _LOGGER.error("Error during Tesla email debug: %s", e)
+            await hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "Tesla Email Debug Failed",
+                    "message": f"Error: {str(e)}",
+                    "notification_id": "tesla_email_debug_error"
+                }
+            )
+    
+    async def fix_receipt_dates(call: ServiceCall):
+        """Service to fix incorrect receipt dates."""
+        if not date_corrector:
+            await hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "Date Correction Not Available",
+                    "message": "Date corrector not initialized. Please create date_corrector.py file.",
+                    "notification_id": "date_correction_unavailable"
+                }
+            )
+            return
+        
+        _LOGGER.info("Date correction service triggered")
+        
+        try:
+            result = await hass.async_add_executor_job(date_corrector.fix_receipt_dates)
+            
+            if result['success']:
+                message = (f"Date correction complete: "
+                          f"{result['fixed_count']} receipts fixed, "
+                          f"{result['failed_count']} failed, "
+                          f"{result['total_processed']} total processed")
+                
+                await hass.services.async_call(
+                    "persistent_notification",
+                    "create",
+                    {
+                        "title": "EV Date Correction Complete",
+                        "message": message,
+                        "notification_id": "ev_date_correction"
+                    }
+                )
+                
+                # Trigger coordinator refresh to update sensors
+                coordinator = hass.data[DOMAIN][list(hass.data[DOMAIN].keys())[0]]["coordinator"]
+                await coordinator.async_request_refresh()
+                
+            else:
+                await hass.services.async_call(
+                    "persistent_notification",
+                    "create",
+                    {
+                        "title": "EV Date Correction Failed",
+                        "message": f"Error: {result.get('error', 'Unknown error')}",
+                        "notification_id": "ev_date_correction_error"
+                    }
+                )
+                
+        except Exception as e:
+            _LOGGER.error("Error in date correction service: %s", e)
+            await hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "EV Date Correction Failed",
+                    "message": f"Error: {str(e)}",
+                    "notification_id": "ev_date_correction_error"
+                }
+            )
+    
+    async def analyze_date_issues(call: ServiceCall):
+        """Service to analyze receipts with date issues."""
+        if not date_corrector:
+            await hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "Date Analysis Not Available",
+                    "message": "Date corrector not initialized. Please create date_corrector.py file.",
+                    "notification_id": "date_analysis_unavailable"
+                }
+            )
+            return
+        
+        _LOGGER.info("Date analysis service triggered")
+        
+        try:
+            issues = await hass.async_add_executor_job(date_corrector.analyze_date_issues)
+            
+            if issues:
+                issue_details = []
+                for receipt_id, provider, date_str, subject in issues[:10]:  # Show first 10
+                    issue_details.append(f"#{receipt_id} ({provider}): {subject[:50]}...")
+                
+                message = (f"Found {len(issues)} receipts with date issues:\n\n" +
+                          "\n".join(issue_details))
+                if len(issues) > 10:
+                    message += f"\n\n... and {len(issues) - 10} more"
+                
+                message += f"\n\nRun 'fix_receipt_dates' service to correct them."
+            else:
+                message = "No date issues found in receipts."
+            
+            await hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "EV Date Analysis Complete",
+                    "message": message,
+                    "notification_id": "ev_date_analysis"
+                }
+            )
+            
+        except Exception as e:
+            _LOGGER.error("Error in date analysis service: %s", e)
+            await hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "EV Date Analysis Failed",
+                    "message": f"Error: {str(e)}",
+                    "notification_id": "ev_date_analysis_error"
+                }
+            )
+    
     async def export_to_csv(call: ServiceCall):
         """Service to export data to CSV."""
         _LOGGER.info("CSV export triggered")
@@ -286,6 +452,15 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
             
         except Exception as e:
             _LOGGER.error("Error during CSV export: %s", e)
+            await hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "EV Data Export Failed",
+                    "message": f"Error: {str(e)}",
+                    "notification_id": "ev_export_error"
+                }
+            )
     
     async def get_database_stats(call: ServiceCall):
         """Service to get database statistics."""
@@ -305,7 +480,10 @@ Energy: {stats.get('monthly_energy', 0):.1f} kWh
 
 Home vs Public (Monthly):
 Home: {stats.get('home_monthly_receipts', 0)} sessions, ${stats.get('home_monthly_cost', 0):.2f}
-Public: {stats.get('public_monthly_receipts', 0)} sessions, ${stats.get('public_monthly_cost', 0):.2f}"""
+Public: {stats.get('public_monthly_receipts', 0)} sessions, ${stats.get('public_monthly_cost', 0):.2f}
+
+Average: ${stats.get('average_cost_per_kwh', 0):.4f}/kWh
+Last Session: {stats.get('last_session_provider', 'None')}"""
             
             await hass.services.async_call(
                 "persistent_notification",
@@ -346,6 +524,11 @@ Public: {stats.get('public_monthly_receipts', 0)} sessions, ${stats.get('public_
                         "notification_id": "ev_clear_reprocess_complete"
                     }
                 )
+                
+                # Trigger coordinator refresh
+                coordinator = hass.data[DOMAIN][list(hass.data[DOMAIN].keys())[0]]["coordinator"]
+                await coordinator.async_request_refresh()
+                
             else:
                 await hass.services.async_call(
                     "persistent_notification",
@@ -388,6 +571,15 @@ Public: {stats.get('public_monthly_receipts', 0)} sessions, ${stats.get('public_
         DOMAIN, "process_tesla_pdfs", process_tesla_pdfs
     )
     hass.services.async_register(
+        DOMAIN, "debug_tesla_emails", debug_tesla_emails
+    )
+    hass.services.async_register(
+        DOMAIN, "fix_receipt_dates", fix_receipt_dates
+    )
+    hass.services.async_register(
+        DOMAIN, "analyze_date_issues", analyze_date_issues
+    )
+    hass.services.async_register(
         DOMAIN, "export_to_csv", export_to_csv
     )
     hass.services.async_register(
@@ -398,7 +590,7 @@ Public: {stats.get('public_monthly_receipts', 0)} sessions, ${stats.get('public_
         schema=SERVICE_CLEAR_AND_REPROCESS_SCHEMA
     )
     
-    _LOGGER.info("🚀 EV Charging services registered with Tesla PDF support")
+    _LOGGER.info("🚀 EV Charging services registered with Tesla support and date correction")
 
 
 async def _async_setup_scheduler(hass: HomeAssistant, coordinator: EVChargingDataCoordinator, config: dict) -> None:

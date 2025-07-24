@@ -1,4 +1,4 @@
-"""Date utilities for parsing and formatting."""
+"""Date utilities for parsing and formatting - compatible version."""
 import re
 import logging
 from datetime import datetime
@@ -18,90 +18,167 @@ class DateUtils:
     @staticmethod
     def extract_date_from_text(text: str) -> Optional[datetime]:
         """Extract date from text using various patterns."""
-        if not pd:
-            _LOGGER.warning("Pandas not available for date parsing")
+        if not text:
             return None
         
-        # Import here to avoid circular import
-        from .pattern_utils import PatternUtils
-        
-        date_components = PatternUtils.extract_date_components(text)
-        if not date_components:
-            return None
-        
-        date_str, time_str = date_components
-        
-        try:
-            # Handle ISO format dates specifically (YYYY-MM-DD)
-            if re.match(r'^\d{4}-\d{1,2}-\d{1,2}$', date_str.strip()):
-                # This is ISO format - parse directly without dayfirst
-                parsed_date = pd.to_datetime(date_str, format='%Y-%m-%d')
-                _LOGGER.debug("Parsed ISO date %s as %s", date_str, parsed_date)
-                return parsed_date.to_pydatetime()
+        # Enhanced date patterns with priority order
+        date_patterns = [
+            # ISO format (YYYY-MM-DD) - highest priority
+            (r'(\d{4}-\d{1,2}-\d{1,2})', '%Y-%m-%d', False),
             
-            # Handle other formats with dayfirst=True for Australian dates
-            parsed_date = pd.to_datetime(date_str, dayfirst=True)
-            _LOGGER.debug("Parsed date %s as %s", date_str, parsed_date)
-            return parsed_date.to_pydatetime()
-        except Exception as e:
-            _LOGGER.debug("Date parsing failed for '%s': %s", date_str, e)
-            return None
+            # Australian format (DD/MM/YYYY)
+            (r'(\d{1,2}/\d{1,2}/\d{4})', '%d/%m/%Y', True),
+            
+            # US format (MM/DD/YYYY) 
+            (r'(\d{1,2}/\d{1,2}/\d{4})', '%m/%d/%Y', False),
+            
+            # Tesla format (YYYY/MM/DD)
+            (r'(\d{4}/\d{1,2}/\d{1,2})', '%Y/%m/%d', False),
+            
+            # Date with time - extract date part
+            (r'(\d{1,2}/\d{1,2}/\d{4})\s+\d{1,2}:\d{2}', '%d/%m/%Y', True),
+            (r'(\d{4}-\d{1,2}-\d{1,2})\s+\d{1,2}:\d{2}', '%Y-%m-%d', False),
+            
+            # Month name formats
+            (r'(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})', '%d %B %Y', False),
+            (r'([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})', '%B %d, %Y', False),
+            
+            # Alternative separators
+            (r'(\d{1,2}-\d{1,2}-\d{4})', '%d-%m-%Y', True),
+            (r'(\d{4}\.\d{1,2}\.\d{1,2})', '%Y.%m.%d', False),
+            (r'(\d{1,2}\.\d{1,2}\.\d{4})', '%d.%m.%Y', True),
+        ]
+        
+        for pattern, date_format, is_day_first in date_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                try:
+                    date_str = match.group(1).strip()
+                    
+                    # Try pandas first if available and format needs it
+                    if pd and ('/' in date_str or '-' in date_str) and len(date_str.split('/')) == 3:
+                        try:
+                            # Use pandas with dayfirst parameter
+                            if is_day_first:
+                                parsed_date = pd.to_datetime(date_str, dayfirst=True, errors='raise')
+                            else:
+                                parsed_date = pd.to_datetime(date_str, errors='raise')
+                            
+                            result = parsed_date.to_pydatetime()
+                            _LOGGER.debug("Parsed date with pandas: %s -> %s (dayfirst=%s)", 
+                                        date_str, result, is_day_first)
+                            return result
+                        except:
+                            pass  # Fall through to manual parsing
+                    
+                    # Manual parsing with specific format
+                    try:
+                        result = datetime.strptime(date_str, date_format)
+                        _LOGGER.debug("Parsed date manually: %s -> %s (format: %s)", 
+                                    date_str, result, date_format)
+                        return result
+                    except ValueError:
+                        # Try alternative formats for the same pattern
+                        if date_format == '%d/%m/%Y':
+                            try:
+                                result = datetime.strptime(date_str, '%m/%d/%Y')
+                                _LOGGER.debug("Parsed date with US format fallback: %s -> %s", date_str, result)
+                                return result
+                            except ValueError:
+                                pass
+                        elif date_format == '%m/%d/%Y':
+                            try:
+                                result = datetime.strptime(date_str, '%d/%m/%Y')
+                                _LOGGER.debug("Parsed date with AU format fallback: %s -> %s", date_str, result)
+                                return result
+                            except ValueError:
+                                pass
+                        continue
+                        
+                except Exception as e:
+                    _LOGGER.debug("Date parsing failed for '%s' with pattern '%s': %s", 
+                                date_str, pattern, e)
+                    continue
+        
+        _LOGGER.warning("Could not parse any date from text: %s", text[:100])
+        return None
+    
+    @staticmethod
+    def extract_date_components(text: str) -> Optional[tuple]:
+        """Extract date and time components from text."""
+        # Enhanced patterns for different providers
+        datetime_patterns = [
+            # Tesla patterns
+            r'Invoice\s+date\s+(\d{4}/\d{2}/\d{2})',
+            r'Date\s+of\s+Event[^\n]*(\d{4}/\d{2}/\d{2})',
+            
+            # BP Pulse patterns
+            r'([A-Za-z]{3,9}\s+\d{1,2},\s+\d{4})\s+at\s+(\d{1,2}:\d{2}:\d{2}\s*[AP]M)',
+            
+            # EVIE patterns  
+            r'([A-Za-z]{3,9}\s+\d{1,2},\s+\d{4})\s+at\s+(\d{1,2}:\d{2}:\d{2}\s*[AP]M\s*[A-Z]{3,4})',
+            
+            # Chargefox patterns
+            r'EV\s+charging\s+at[^\n]*on\s+(\d{4}-\d{2}-\d{2})',
+            r'(\d{1,2}[/-]\d{1,2}[/-]\d{4})\s+at\s+(\d{1,2}:\d{2})',
+            
+            # Ampol patterns
+            r'Start\s+Time[:\s]*(\d{2}/\d{2}/\d{4})\s+(\d{2}:\d{2}\s*[AP]M)',
+            
+            # General patterns
+            r'(\d{4}-\d{1,2}-\d{1,2})',
+            r'(\d{1,2}/\d{1,2}/\d{4})',
+            r'([A-Za-z]{3,9}\s+\d{1,2},\s+\d{4})',
+        ]
+        
+        for pattern in datetime_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                if len(match.groups()) > 1:
+                    return match.group(1), match.group(2)
+                else:
+                    return match.group(1), None
+        
+        return None
     
     @staticmethod
     def parse_date_safely(date_str: str) -> Optional[datetime]:
-        """Parse date string with multiple fallback formats."""
-        if not date_str or pd is None:
+        """Parse date string with multiple fallback formats and validation."""
+        if not date_str:
             return None
         
         try:
-            # Convert to string if not already
-            date_str = str(date_str)
+            # First try the enhanced extraction
+            result = DateUtils.extract_date_from_text(str(date_str))
+            if result:
+                # Validate the result is reasonable (not too far in future/past)
+                now = datetime.now()
+                if result.year < 2020 or result.year > now.year + 1:
+                    _LOGGER.warning("Parsed date seems unreasonable: %s from '%s'", result, date_str)
+                    return None
+                return result
             
-            # Handle ISO format dates specifically (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
-            if re.match(r'^\d{4}-\d{1,2}-\d{1,2}', date_str):
-                # This is ISO format - parse without dayfirst to avoid confusion
-                result = pd.to_datetime(date_str, errors='coerce')
-                if pd.notna(result):
-                    _LOGGER.debug("Parsed ISO date %s as %s", date_str, result)
-                    return result.to_pydatetime()
+            # If that fails, try pandas with different settings
+            if pd:
+                try:
+                    # Try with dayfirst=True (Australian format)
+                    result = pd.to_datetime(date_str, dayfirst=True, errors='raise')
+                    if pd.notna(result):
+                        return result.to_pydatetime()
+                except:
+                    try:
+                        # Try with dayfirst=False (US format)
+                        result = pd.to_datetime(date_str, dayfirst=False, errors='raise')
+                        if pd.notna(result):
+                            return result.to_pydatetime()
+                    except:
+                        pass
             
-            # Handle DD/MM/YYYY or DD-MM-YYYY formats
-            if re.match(r'^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', date_str):
-                # This looks like DD/MM/YYYY - use dayfirst=True
-                result = pd.to_datetime(date_str, dayfirst=True, errors='coerce')
-                if pd.notna(result):
-                    _LOGGER.debug("Parsed DD/MM date %s as %s", date_str, result)
-                    return result.to_pydatetime()
-            
-            # Try pandas auto-parsing for other formats
-            result = pd.to_datetime(date_str, errors='coerce')
-            if pd.notna(result):
-                return result.to_pydatetime()
+            return None
             
         except Exception as e:
-            _LOGGER.debug("Exception parsing date %s: %s", date_str, e)
-        
-        try:
-            # Try manual ISO parsing with timezone handling
-            if 'T' in date_str and '+' in date_str:
-                # Split at timezone
-                dt_part, tz_part = date_str.split('+')
-                # Remove excessive microseconds (keep only 6 digits)
-                if '.' in dt_part:
-                    base_dt, microsecs = dt_part.split('.')
-                    microsecs = microsecs[:6].ljust(6, '0')  # Truncate or pad to 6 digits
-                    dt_part = f"{base_dt}.{microsecs}"
-                
-                # Reconstruct with timezone
-                cleaned_date = f"{dt_part}+{tz_part}"
-                result = pd.to_datetime(cleaned_date, errors='coerce')
-                if pd.notna(result):
-                    return result.to_pydatetime()
-        except Exception as e:
-            _LOGGER.debug("Manual timezone parsing failed for %s: %s", date_str, e)
-        
-        _LOGGER.warning("Could not parse date: %s", date_str)
-        return None
+            _LOGGER.debug("Date parsing completely failed for '%s': %s", date_str, e)
+            return None
     
     @staticmethod
     def format_date_for_display(date_obj: datetime) -> str:
@@ -129,12 +206,12 @@ class DateUtils:
             if not date_obj:
                 return False
             
-            if pd:
-                cutoff_date = datetime.now() - pd.Timedelta(days=days_back)
-            else:
-                from datetime import timedelta
-                cutoff_date = datetime.now() - timedelta(days=days_back)
-            
+            from datetime import timedelta
+            cutoff_date = datetime.now() - timedelta(days=days_back)
             return date_obj >= cutoff_date
         except Exception:
             return False
+
+
+# Alias for backward compatibility
+EnhancedDateUtils = DateUtils

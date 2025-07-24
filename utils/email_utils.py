@@ -122,7 +122,7 @@ class EmailUtils:
     
     @staticmethod
     def parse_email_content(raw_email: bytes, verbose_logging: bool = False) -> Dict[str, any]:
-        """Parse email content with HTML extraction support."""
+        """Parse email content with PDF extraction support."""
         try:
             msg = email.message_from_bytes(raw_email)
             

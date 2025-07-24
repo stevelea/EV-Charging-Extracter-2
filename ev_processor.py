@@ -1,7 +1,10 @@
-"""Refactored EV processor - main coordinator for EV charging data processing."""
+"""Enhanced EV processor with Tesla support - minimal changes to existing code."""
 import os
 import logging
-from typing import Dict, Any
+import imaplib
+import hashlib
+from datetime import datetime, timedelta
+from typing import Dict, Any, List, Optional
 
 from homeassistant.core import HomeAssistant
 
@@ -19,12 +22,21 @@ from .processors.database_manager import DatabaseManager
 from .processors.email_processor import EmailProcessor
 from .processors.evcc_processor import EVCCProcessor
 from .utils.export_utils import ExportUtils
+from .utils.email_utils import EmailUtils
+
+# Try to import Tesla functionality
+try:
+    from .processors.tesla_pdf_processor import TeslaPDFProcessor
+    TESLA_PDF_AVAILABLE = True
+except ImportError:
+    TeslaPDFProcessor = None
+    TESLA_PDF_AVAILABLE = False
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class EVChargingProcessor:
-    """Main coordinator for EV charging data processing."""
+    """Main coordinator for EV charging data processing with Tesla support."""
 
     def __init__(self, hass: HomeAssistant, config: dict):
         """Initialize the processor."""
@@ -74,6 +86,20 @@ class EVChargingProcessor:
             self.verbose_logging
         ) if self.evcc_enabled else None
         
+        # Initialize Tesla PDF processor if available
+        self.tesla_processor = None
+        if TESLA_PDF_AVAILABLE:
+            try:
+                self.tesla_processor = TeslaPDFProcessor(
+                    hass.config.path(),
+                    self.database_manager,
+                    self.default_currency,
+                    self.verbose_logging
+                )
+                _LOGGER.info("✅ Tesla PDF processor initialized")
+            except Exception as e:
+                _LOGGER.warning("Could not initialize Tesla PDF processor: %s", e)
+        
         self.export_utils = ExportUtils(self.csv_path, self.database_manager)
 
     def update_config(self, new_config: dict):
@@ -103,14 +129,21 @@ class EVChargingProcessor:
             self.evcc_processor.default_currency = self.default_currency
             self.evcc_processor.verbose_logging = self.verbose_logging
         
-        _LOGGER.info("🔄 Configuration updated - EVCC: %s (%s), Rate: $%.4f/kWh", 
+        if self.tesla_processor:
+            self.tesla_processor.default_currency = self.default_currency
+            self.tesla_processor.verbose_logging = self.verbose_logging
+        
+        _LOGGER.info("🔄 Configuration updated - EVCC: %s (%s), Tesla: %s, Rate: $%.4f/kWh", 
                     "Enabled" if self.evcc_enabled else "Disabled", 
-                    self.evcc_url, self.home_electricity_rate)
+                    self.evcc_url,
+                    "Available" if self.tesla_processor else "Unavailable",
+                    self.home_electricity_rate)
 
     def process_emails(self, override_email_days=None):
         """Main processing function."""
         results = {
             'new_email_receipts': 0,
+            'new_tesla_receipts': 0,
             'new_evcc_sessions': 0,
             'errors': []
         }
@@ -121,6 +154,21 @@ class EVChargingProcessor:
             email_results = self.email_processor.process_emails(email_days)
             results['new_email_receipts'] = email_results.get('new_email_receipts', 0)
             results['errors'].extend(email_results.get('errors', []))
+            
+            # Process Tesla PDFs from directory (if available)
+            if self.tesla_processor:
+                try:
+                    _LOGGER.info("🚗 Processing Tesla PDFs from directory...")
+                    tesla_results = self.tesla_processor.process_tesla_pdfs()
+                    results['new_tesla_receipts'] = tesla_results.get('new_tesla_receipts', 0)
+                    results['errors'].extend(tesla_results.get('errors', []))
+                    
+                    _LOGGER.info("✅ Tesla PDF processing complete: %d new receipts", 
+                               tesla_results.get('new_tesla_receipts', 0))
+                    
+                except Exception as e:
+                    _LOGGER.error("Error processing Tesla PDFs: %s", e)
+                    results['errors'].append(f"Tesla PDF processing error: {str(e)}")
             
             # Process EVCC sessions
             if self.evcc_enabled and self.evcc_processor:
@@ -146,14 +194,40 @@ class EVChargingProcessor:
                 except Exception as e:
                     _LOGGER.warning("Failed to auto-export CSV: %s", e)
             
-            _LOGGER.info("Processing complete: %d email receipts, %d EVCC sessions", 
-                        results['new_email_receipts'], results['new_evcc_sessions'])
+            total_receipts = results['new_email_receipts'] + results['new_tesla_receipts']
+            _LOGGER.info("Processing complete: %d email receipts, %d Tesla receipts, %d EVCC sessions", 
+                        results['new_email_receipts'], results['new_tesla_receipts'], results['new_evcc_sessions'])
             
         except Exception as e:
             _LOGGER.error("Error in main processing: %s", e)
             results['errors'].append(str(e))
         
         return results
+
+    def process_tesla_pdfs_only(self):
+        """Process only Tesla PDFs from directory."""
+        if not self.tesla_processor:
+            _LOGGER.error("Tesla PDF processor not available")
+            return {'new_tesla_receipts': 0, 'errors': ['Tesla PDF processor not available']}
+        
+        try:
+            _LOGGER.info("🚗 Processing Tesla PDFs only...")
+            return self.tesla_processor.process_tesla_pdfs()
+        except Exception as e:
+            _LOGGER.error("Error processing Tesla PDFs only: %s", e)
+            return {'new_tesla_receipts': 0, 'errors': [str(e)]}
+
+    def debug_tesla_pdfs(self):
+        """Debug Tesla PDF processing."""
+        if not self.tesla_processor:
+            _LOGGER.error("Tesla PDF processor not available")
+            return
+        
+        try:
+            _LOGGER.info("🔍 Debugging Tesla PDFs...")
+            self.tesla_processor.debug_tesla_pdfs()
+        except Exception as e:
+            _LOGGER.error("Error debugging Tesla PDFs: %s", e)
 
     def clear_data_and_reprocess(self, override_email_days=None):
         """Clear all existing data and reprocess emails from scratch."""
@@ -177,12 +251,20 @@ class EVChargingProcessor:
                 'success': True,
                 'data_cleared': clear_result,
                 'processing_result': process_result,
-                'new_receipts': process_result['new_email_receipts'],
+                'new_email_receipts': process_result['new_email_receipts'],
+                'new_tesla_receipts': process_result['new_tesla_receipts'],
+                'new_evcc_sessions': process_result['new_evcc_sessions'],
                 'errors': process_result['errors']
             }
             
-            _LOGGER.info("🎉 Fresh processing complete: %d new receipts found", 
-                        process_result['new_email_receipts'])
+            total_new = (process_result['new_email_receipts'] + 
+                        process_result['new_tesla_receipts'] + 
+                        process_result['new_evcc_sessions'])
+            
+            _LOGGER.info("🎉 Fresh processing complete: %d email, %d Tesla, %d EVCC receipts found", 
+                        process_result['new_email_receipts'],
+                        process_result['new_tesla_receipts'],
+                        process_result['new_evcc_sessions'])
             
             return result
             
@@ -238,12 +320,10 @@ class EVChargingProcessor:
 
     def extract_pdf_text(self, pdf_data):
         """Legacy method - moved to EmailUtils."""
-        from .utils import EmailUtils
         return EmailUtils.extract_pdf_text(pdf_data)
 
     def parse_email_content(self, raw_email):
         """Legacy method - moved to EmailUtils."""
-        from .utils import EmailUtils
         return EmailUtils.parse_email_content(raw_email, self.verbose_logging)
 
     def identify_provider(self, sender):

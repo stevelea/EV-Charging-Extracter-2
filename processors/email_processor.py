@@ -1,4 +1,4 @@
-"""Email processor for EV charging receipts."""
+"""Email processor for EV charging receipts with fixed imports."""
 import imaplib
 import logging
 import hashlib
@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 from ..models import ProviderMapping
-from ..utils import EmailUtils
+from ..utils.email_utils import EmailUtils  # Fixed import
 from ..parsers import BPPulseParser, EVIEParser, ChargefoxParser, AmpolParser
 from .database_manager import DatabaseManager
 

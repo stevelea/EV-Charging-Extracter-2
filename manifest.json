@@ -8,6 +8,10 @@
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/your-username/ha-ev-charging-extractor/issues",
-  "requirements": [],
+  "requirements": [
+    "beautifulsoup4==4.12.2",
+    "PyPDF2==3.0.1",
+    "pytz==2023.3"
+  ],
   "version": "1.0.0"
 }

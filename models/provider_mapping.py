@@ -1,9 +1,9 @@
-"""Provider mapping and identification."""
+"""Enhanced provider mapping and identification with Tesla email support."""
 from typing import Dict, List
 
 
-class ProviderMapping:
-    """Handles provider identification from email senders."""
+class EnhancedProviderMapping:
+    """Handles provider identification from email senders including Tesla emails."""
     
     PROVIDER_MAPPING = {
         'chargefox': 'Chargefox',
@@ -24,13 +24,18 @@ class ProviderMapping:
         'agl': 'AGL',
         'origin': 'Origin Energy',
         'energex': 'Energex',
-        'ausgrid': 'Ausgrid'
+        'ausgrid': 'Ausgrid',
+        'stevelea': 'Tesla'  # Add specific mapping for Tesla email sender
     }
     
     @classmethod
     def identify_provider(cls, sender: str) -> str:
         """Identify charging provider from email sender."""
         sender_lower = sender.lower()
+        
+        # Special handling for Tesla emails from stevelea@gmail.com
+        if 'stevelea@gmail.com' in sender_lower:
+            return 'Tesla'
         
         # Check direct matches
         for key, provider in cls.PROVIDER_MAPPING.items():
@@ -62,8 +67,12 @@ class ProviderMapping:
     
     @classmethod
     def get_search_terms(cls) -> List[str]:
-        """Get email search terms for charging providers."""
+        """Get email search terms for charging providers including Tesla."""
         return [
+            # Tesla email search patterns - ADD THESE FIRST for priority
+            '(FROM "stevelea@gmail.com" SUBJECT "Tesla Charging")',
+            '(FROM "stevelea@gmail.com" SUBJECT "tesla")',
+            
             # BP PULSE - enhanced search patterns
             '(FROM "DoNotReply@bppulse.com.au")',
             '(FROM "noreply@bppulse.com.au")',
@@ -83,7 +92,7 @@ class ProviderMapping:
             'FROM "info@chargefox.com"',
             'FROM "noreply@chargefox.com"',
             
-            # Tesla Supercharging
+            # Tesla Supercharging (official Tesla emails)
             'FROM "no-reply@tesla.com" SUBJECT "supercharg"',
             'FROM "noreply@tesla.com" SUBJECT "supercharg"',
             
@@ -114,4 +123,24 @@ class ProviderMapping:
             
             # Origin Energy charging
             'FROM "noreply@originenergy.com.au" SUBJECT "charg"'
+        ]
+    
+    @classmethod
+    def is_tesla_email(cls, sender: str, subject: str) -> bool:
+        """Check if email is a Tesla charging email."""
+        sender_lower = sender.lower()
+        subject_lower = subject.lower()
+        
+        return (
+            'stevelea@gmail.com' in sender_lower and 
+            'tesla charging' in subject_lower
+        )
+    
+    @classmethod
+    def get_tesla_search_terms(cls) -> List[str]:
+        """Get specific Tesla email search terms."""
+        return [
+            '(FROM "stevelea@gmail.com" SUBJECT "Tesla Charging")',
+            '(FROM "stevelea@gmail.com" SUBJECT "tesla")',
+            '(FROM "stevelea@gmail.com" SUBJECT "charging")',
         ]
