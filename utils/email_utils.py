@@ -1,4 +1,4 @@
-"""Email utilities for parsing and processing."""
+"""Email utilities for parsing and processing with enhanced HTML support."""
 import email
 import logging
 from typing import Dict, Optional
@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class EmailUtils:
-    """Utility class for email processing."""
+    """Utility class for email processing with HTML support."""
     
     @staticmethod
     def extract_pdf_text(pdf_data: bytes) -> str:
@@ -45,7 +45,7 @@ class EmailUtils:
             return ""
     
     @staticmethod
-    def extract_html_content(html_content: str, is_evie: bool = False, is_bp_pulse: bool = False) -> str:
+    def extract_html_content(html_content: str, provider_hint: str = "") -> str:
         """Extract text content from HTML with provider-specific handling."""
         if not BeautifulSoup:
             _LOGGER.warning("BeautifulSoup not available, using simple HTML stripping")
@@ -59,8 +59,25 @@ class EmailUtils:
                 script.decompose()
             
             # Provider-specific content extraction
-            if is_bp_pulse:
-                # Look for common BP Pulse content containers
+            if "evie" in provider_hint.lower():
+                # EVIE specific handling - look for main content areas
+                main_content = soup.find(['div', 'td', 'table'], 
+                                       class_=lambda x: x and any(cls in str(x).lower() 
+                                                                for cls in ['content', 'main', 'body', 'receipt', 'invoice', 'email-body']))
+                if main_content:
+                    html_text = main_content.get_text(separator='\n', strip=True)
+                else:
+                    # Fallback: try to find tables or divs that might contain receipt data
+                    receipt_content = soup.find_all(['table', 'div'], 
+                                                  string=lambda text: text and any(keyword in text.lower() 
+                                                                                  for keyword in ['receipt', 'invoice', 'total', 'amount', 'energy']))
+                    if receipt_content:
+                        html_text = '\n'.join([elem.get_text(separator='\n', strip=True) for elem in receipt_content])
+                    else:
+                        html_text = soup.get_text(separator='\n', strip=True)
+            
+            elif "bppulse" in provider_hint.lower() or "bp" in provider_hint.lower():
+                # BP Pulse specific handling
                 main_content = soup.find(['div', 'td', 'table'], 
                                        class_=lambda x: x and any(cls in str(x).lower() 
                                                                 for cls in ['content', 'main', 'body', 'receipt', 'invoice']))
@@ -68,11 +85,13 @@ class EmailUtils:
                     html_text = main_content.get_text(separator='\n', strip=True)
                 else:
                     html_text = soup.get_text(separator='\n', strip=True)
+            
             else:
+                # General HTML processing
                 html_text = soup.get_text(separator='\n', strip=True)
             
             # Clean the extracted text
-            return EmailUtils._clean_extracted_text(html_text, is_bp_pulse)
+            return EmailUtils._clean_extracted_text(html_text, provider_hint)
             
         except Exception as e:
             _LOGGER.error("Error extracting HTML content: %s", e)
@@ -87,8 +106,19 @@ class EmailUtils:
         html_content = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
         html_content = re.sub(r'<style[^>]*>.*?</style>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
         
-        # Replace tags with newlines
-        html_content = re.sub(r'<[^>]+>', '\n', html_content)
+        # Replace common HTML entities
+        html_content = html_content.replace('&nbsp;', ' ')
+        html_content = html_content.replace('&amp;', '&')
+        html_content = html_content.replace('&lt;', '<')
+        html_content = html_content.replace('&gt;', '>')
+        html_content = html_content.replace('&quot;', '"')
+        
+        # Replace block-level tags with newlines
+        html_content = re.sub(r'<(?:div|p|br|tr|table|h[1-6])[^>]*>', '\n', html_content, flags=re.IGNORECASE)
+        html_content = re.sub(r'</(?:div|p|tr|table|h[1-6])>', '\n', html_content, flags=re.IGNORECASE)
+        
+        # Remove all remaining tags
+        html_content = re.sub(r'<[^>]+>', ' ', html_content)
         
         # Clean whitespace
         html_content = re.sub(r'\s+', ' ', html_content).strip()
@@ -96,7 +126,7 @@ class EmailUtils:
         return html_content
     
     @staticmethod
-    def _clean_extracted_text(text: str, is_bp_pulse: bool = False) -> str:
+    def _clean_extracted_text(text: str, provider_hint: str = "") -> str:
         """Clean extracted text based on provider."""
         lines = text.split('\n')
         cleaned_lines = []
@@ -104,25 +134,47 @@ class EmailUtils:
         for line in lines:
             line = line.strip()
             
-            if is_bp_pulse:
-                # For BP Pulse, be very permissive - only remove obvious junk
-                if line and line not in ['', ' ', '\t', '\n', '\r']:
+            # Skip empty lines and common email artifacts
+            if not line or line in ['', ' ', '\t', '\n', '\r']:
+                continue
+            
+            # Skip common email footer/header content
+            skip_patterns = [
+                'unsubscribe',
+                'privacy policy',
+                'terms and conditions',
+                'view this email',
+                'download our app',
+                'follow us',
+                'social media',
+                'customer service',
+                'help center'
+            ]
+            
+            if any(pattern in line.lower() for pattern in skip_patterns):
+                continue
+            
+            # Skip URLs and email addresses (unless they're part of location data)
+            if (line.startswith('http') or 
+                line.startswith('www.') or 
+                line.startswith('mailto:') or
+                '@' in line and len(line.split()) == 1):
+                continue
+            
+            # For EVIE, be more permissive with content
+            if "evie" in provider_hint.lower():
+                if len(line) > 1:
                     cleaned_lines.append(line)
             else:
-                # Original EVIE logic
-                if (line and 
-                    len(line) > 1 and
-                    not line.startswith('http') and
-                    not line.startswith('www.') and
-                    not line.startswith('mailto:') and
-                    line not in ['', ' ', '\t', '\n']):
+                # Original filtering for other providers
+                if len(line) > 2:
                     cleaned_lines.append(line)
         
         return '\n'.join(cleaned_lines)
     
     @staticmethod
     def parse_email_content(raw_email: bytes, verbose_logging: bool = False) -> Dict[str, any]:
-        """Parse email content with PDF extraction support."""
+        """Parse email content with enhanced HTML processing and PDF extraction support."""
         try:
             msg = email.message_from_bytes(raw_email)
             
@@ -132,6 +184,18 @@ class EmailUtils:
             text_content = ""
             pdf_content = ""
             html_content = ""
+            
+            # Determine provider for specialized processing
+            provider_hint = ""
+            sender_lower = sender.lower()
+            if "evie" in sender_lower or "goevie" in sender_lower:
+                provider_hint = "evie"
+            elif "bppulse" in sender_lower or "bp" in sender_lower:
+                provider_hint = "bppulse"
+            elif "chargefox" in sender_lower:
+                provider_hint = "chargefox"
+            elif "ampol" in sender_lower or "ampcharge" in sender_lower:
+                provider_hint = "ampol"
             
             # Parse email parts
             if msg.is_multipart():
@@ -186,26 +250,46 @@ class EmailUtils:
                         if verbose_logging:
                             _LOGGER.debug("Error decoding non-multipart content: %s", e)
             
-            # Check if this needs HTML extraction
-            is_evie_email = "goevie.com.au" in sender.lower()
-            is_bp_pulse = "bppulse.com.au" in sender.lower()
+            # Enhanced HTML processing logic
+            final_text_content = text_content
             
-            # Force HTML extraction for certain providers if plain text is insufficient
-            if (is_evie_email or is_bp_pulse) and html_content.strip() and len(text_content.strip()) < 1000:
-                extracted_text = EmailUtils.extract_html_content(html_content, is_evie_email, is_bp_pulse)
+            # If we have HTML content and either no plain text or very little plain text
+            if html_content.strip():
+                # Always extract from HTML for EVIE emails
+                if provider_hint == "evie":
+                    extracted_html = EmailUtils.extract_html_content(html_content, provider_hint)
+                    if len(extracted_html) > 50:  # Reasonable threshold for EVIE
+                        if verbose_logging:
+                            _LOGGER.info("Using HTML content for EVIE email (extracted %d chars)", len(extracted_html))
+                        final_text_content = extracted_html
+                    else:
+                        if verbose_logging:
+                            _LOGGER.warning("HTML extraction for EVIE yielded insufficient content (%d chars)", len(extracted_html))
                 
-                minimum_threshold = 50 if is_bp_pulse else 100
-                if len(extracted_text) > minimum_threshold:
-                    text_content = extracted_text
+                # For other providers, fall back to HTML if plain text is insufficient
+                elif len(text_content.strip()) < 100:  # Very little or no plain text
+                    extracted_html = EmailUtils.extract_html_content(html_content, provider_hint)
+                    minimum_threshold = 50 if provider_hint == "bppulse" else 100
+                    
+                    if len(extracted_html) > minimum_threshold:
+                        if verbose_logging:
+                            _LOGGER.info("Using HTML content for %s email (plain text: %d chars, HTML: %d chars)", 
+                                       provider_hint or "unknown", len(text_content), len(extracted_html))
+                        final_text_content = extracted_html
             
-            # Combine text and PDF content
-            combined_content = (text_content + pdf_content).strip()
+            # Combine final text and PDF content
+            combined_content = (final_text_content + pdf_content).strip()
+            
+            if verbose_logging and provider_hint:
+                _LOGGER.debug("Processed %s email: subject=%s, text_len=%d, html_len=%d, final_len=%d", 
+                            provider_hint, subject[:50], len(text_content), len(html_content), len(combined_content))
             
             return {
                 'subject': subject,
                 'sender': sender,
                 'text_content': combined_content,
-                'has_pdf': bool(pdf_content)
+                'has_pdf': bool(pdf_content),
+                'raw_email': raw_email  # Include raw email for Tesla processing
             }
             
         except Exception as e:
