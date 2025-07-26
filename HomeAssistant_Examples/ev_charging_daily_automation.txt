@@ -1,0 +1,23 @@
+alias: "EV Charging - Daily Processing"
+description: "Process EV charging receipts daily at 2:00 AM"
+trigger:
+  - platform: time
+    at: "02:00:00"
+condition: []
+action:
+  - service: ev_charging_extractor.trigger_extraction
+    data:
+      email_search_days: 7
+  - delay:
+      hours: 0
+      minutes: 2
+      seconds: 0
+      milliseconds: 0
+  - service: persistent_notification.create
+    data:
+      title: "EV Charging Daily Processing"
+      message: "Daily EV charging receipt processing completed at {{ now().strftime('%H:%M on %d/%m/%Y') }}"
+      notification_id: "ev_daily_processing"
+  - service: ev_charging_extractor.export_to_csv
+    data: {}
+mode: single

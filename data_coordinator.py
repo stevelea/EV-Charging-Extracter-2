@@ -28,7 +28,7 @@ class EVChargingDataCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=DEFAULT_SCAN_INTERVAL,
+            update_interval=None,
         )
 
     async def _async_update_data(self) -> dict[str, Any]:

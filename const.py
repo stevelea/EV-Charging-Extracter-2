@@ -46,7 +46,7 @@ DEFAULT_SCHEDULE_HOUR = 2
 DEFAULT_SCHEDULE_MINUTE = 0
 
 # Update intervals
-DEFAULT_SCAN_INTERVAL = timedelta(hours=6)
+DEFAULT_SCAN_INTERVAL = timedelta(days=1)
 MANUAL_UPDATE_INTERVAL = timedelta(minutes=5)
 
 CONF_EMAIL_SEARCH_DAYS_BACK = "email_search_days_back"
