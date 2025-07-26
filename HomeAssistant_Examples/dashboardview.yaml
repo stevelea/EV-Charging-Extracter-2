@@ -452,3 +452,42 @@ views:
           **{{ states('sensor.ev_latest_provider') }}** - ${{
           states('sensor.ev_latest_cost_rounded') }} for {{
           states('sensor.ev_latest_energy_rounded') }} kWh
+      - type: entities
+        title: Provider All-Time Summary
+        entities:
+          - entity: sensor.ev_tesla_total_rounded
+            name: Tesla Total Cost
+            icon: mdi:car-electric
+          - entity: sensor.ev_tesla_total_sessions
+            name: Tesla Total Sessions
+            icon: mdi:counter
+          - entity: sensor.ev_chargefox_total_rounded
+            name: Chargefox Total Cost
+            icon: mdi:ev-station
+          - entity: sensor.ev_chargefox_total_sessions
+            name: Chargefox Total Sessions
+            icon: mdi:counter
+          - entity: sensor.ev_evie_total_rounded
+            name: EVIE Total Cost
+            icon: mdi:ev-station
+          - entity: sensor.ev_evie_total_sessions
+            name: EVIE Total Sessions
+            icon: mdi:counter
+          - entity: sensor.ev_bp_pulse_total_rounded
+            name: BP Pulse Total Cost
+            icon: mdi:ev-station
+          - entity: sensor.ev_bp_pulse_total_sessions
+            name: BP Pulse Total Sessions
+            icon: mdi:counter
+          - entity: sensor.ev_ampol_total_rounded
+            name: Ampol Total Cost
+            icon: mdi:ev-station
+          - entity: sensor.ev_ampol_total_sessions
+            name: Ampol Total Sessions
+            icon: mdi:counter
+          - entity: sensor.ev_home_total_cost_rounded
+            name: Home Charging Total Cost
+            icon: mdi:home-lightning-bolt
+          - entity: sensor.ev_home_total_sessions
+            name: Home Charging Total Sessions
+            icon: mdi:home-lightning-bolt

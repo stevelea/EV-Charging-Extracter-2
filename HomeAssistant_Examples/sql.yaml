@@ -1,582 +1,871 @@
-# Complete SQL Configuration - Add this to configuration.yaml
+# Complete SQL Configuration for EV Charging Receipt Extractor
+# Add this to configuration.yaml: sql: !include sql.yaml
 
+# Database test and basic stats
+- name: "EV Database Test"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts;
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  # Database test
-  - name: "EV Database Test"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COUNT(*) as count
-      FROM
-        charging_receipts;
-    column: "count"
-    unit_of_measurement: "sessions"
+# =============================================================================
+# LATEST SESSION DETAILS
+# =============================================================================
 
-  # Latest session details
-  - name: "EV Latest Provider"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        provider
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1;
-    column: "provider"
+- name: "EV Latest Provider"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      provider
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1;
+  column: "provider"
 
-  - name: "EV Latest Cost"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        cost
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1;
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV Latest Cost"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      cost
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1;
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  - name: "EV Latest Energy"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(energy_kwh, 0) as energy
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1;
-    column: "energy"
-    unit_of_measurement: "kWh"
+- name: "EV Latest Energy"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(energy_kwh, 0) as energy
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1;
+  column: "energy"
+  unit_of_measurement: "kWh"
 
-  - name: "EV Latest Date"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        strftime('%d-%m-%y %H:%M', date) as formatted_date
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1;
-    column: "formatted_date"
+- name: "EV Latest Date"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      strftime('%d-%m-%y %H:%M', date) as formatted_date
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1;
+  column: "formatted_date"
 
-  - name: "EV Latest Location"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        substr(location, 1, 40) as location
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1;
-    column: "location"
+- name: "EV Latest Location"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      substr(location, 1, 40) as location
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1;
+  column: "location"
 
-  # Monthly totals
-  - name: "EV Monthly Cost"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(SUM(cost), 0) as total
-      FROM
-        charging_receipts
-      WHERE
-        date >= date('now', '-30 days');
-    column: "total"
-    unit_of_measurement: "AUD"
+# =============================================================================
+# MONTHLY TOTALS (Last 30 days)
+# =============================================================================
 
-  - name: "EV Monthly Sessions"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COUNT(*) as count
-      FROM
-        charging_receipts
-      WHERE
-        date >= date('now', '-30 days');
-    column: "count"
-    unit_of_measurement: "sessions"
+- name: "EV Monthly Cost"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as total
+    FROM
+      charging_receipts
+    WHERE
+      date >= date('now', '-30 days');
+  column: "total"
+  unit_of_measurement: "AUD"
 
-  - name: "EV Monthly Energy"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(SUM(energy_kwh), 0) as total
-      FROM
-        charging_receipts
-      WHERE
-        date >= date('now', '-30 days');
-    column: "total"
-    unit_of_measurement: "kWh"
+- name: "EV Monthly Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      date >= date('now', '-30 days');
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  # Home vs Public (Monthly)
-  - name: "EV Home Monthly Cost"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(SUM(cost), 0) as cost
-      FROM
-        charging_receipts
-      WHERE
-        source_type = 'evcc'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV Monthly Energy"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(energy_kwh), 0) as total
+    FROM
+      charging_receipts
+    WHERE
+      date >= date('now', '-30 days');
+  column: "total"
+  unit_of_measurement: "kWh"
 
-  - name: "EV Public Monthly Cost"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(SUM(cost), 0) as cost
-      FROM
-        charging_receipts
-      WHERE
-        source_type IN ('email', 'tesla_pdf')
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+# =============================================================================
+# HOME VS PUBLIC CHARGING (Monthly)
+# =============================================================================
 
-  # Provider monthly costs
-  - name: "EV Tesla Monthly"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(SUM(cost), 0) as cost
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'Tesla'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV Home Monthly Cost"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      source_type = 'evcc'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  - name: "EV Chargefox Monthly"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(SUM(cost), 0) as cost
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'Chargefox'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV Public Monthly Cost"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      source_type IN ('email', 'tesla_pdf')
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  - name: "EV EVIE Monthly"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(SUM(cost), 0) as cost
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'EVIE Networks'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV Home Monthly Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      source_type = 'evcc'
+      AND date >= date('now', '-30 days');
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  - name: "EV BP Pulse Monthly"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(SUM(cost), 0) as cost
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'BP Pulse'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV Public Monthly Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      source_type IN ('email', 'tesla_pdf')
+      AND date >= date('now', '-30 days');
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  - name: "EV Ampol Monthly"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(SUM(cost), 0) as cost
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'Ampol'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+# =============================================================================
+# MONTHLY PROVIDER COSTS
+# =============================================================================
 
-  # Provider session counts
-  - name: "EV Tesla Sessions"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COUNT(*) as count
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'Tesla'
-        AND date >= date('now', '-30 days');
-    column: "count"
-    unit_of_measurement: "sessions"
+- name: "EV Tesla Monthly"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Tesla'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  - name: "EV Chargefox Sessions"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COUNT(*) as count
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'Chargefox'
-        AND date >= date('now', '-30 days');
-    column: "count"
-    unit_of_measurement: "sessions"
+- name: "EV Chargefox Monthly"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Chargefox'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  - name: "EV EVIE Sessions"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COUNT(*) as count
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'EVIE Networks'
-        AND date >= date('now', '-30 days');
-    column: "count"
-    unit_of_measurement: "sessions"
+- name: "EV EVIE Monthly"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'EVIE Networks'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  - name: "EV BP Pulse Sessions"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COUNT(*) as count
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'BP Pulse'
-        AND date >= date('now', '-30 days');
-    column: "count"
-    unit_of_measurement: "sessions"
+- name: "EV BP Pulse Monthly"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'BP Pulse'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  - name: "EV Ampol Sessions"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COUNT(*) as count
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'Ampol'
-        AND date >= date('now', '-30 days');
-    column: "count"
-    unit_of_measurement: "sessions"
+- name: "EV Ampol Monthly"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Ampol'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  # Recent sessions table data (top 10)
-  - name: "EV Recent Session 1"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        provider || ' | ' || 
-        strftime('%d-%m-%y %H:%M', date) || ' | $' || 
-        printf('%.2f', cost) || ' | ' || 
-        printf('%.1f', COALESCE(energy_kwh, 0)) || 'kWh | ' ||
-        substr(location, 1, 25) as session_info
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1;
-    column: "session_info"
+# =============================================================================
+# MONTHLY PROVIDER SESSION COUNTS
+# =============================================================================
 
-  - name: "EV Recent Session 2"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        provider || ' | ' || 
-        strftime('%d-%m-%y %H:%M', date) || ' | $' || 
-        printf('%.2f', cost) || ' | ' || 
-        printf('%.1f', COALESCE(energy_kwh, 0)) || 'kWh | ' ||
-        substr(location, 1, 25) as session_info
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1 OFFSET 1;
-    column: "session_info"
+- name: "EV Tesla Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Tesla'
+      AND date >= date('now', '-30 days');
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  - name: "EV Recent Session 3"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        provider || ' | ' || 
-        strftime('%d-%m-%y %H:%M', date) || ' | $' || 
-        printf('%.2f', cost) || ' | ' || 
-        printf('%.1f', COALESCE(energy_kwh, 0)) || 'kWh | ' ||
-        substr(location, 1, 25) as session_info
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1 OFFSET 2;
-    column: "session_info"
+- name: "EV Chargefox Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Chargefox'
+      AND date >= date('now', '-30 days');
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  - name: "EV Recent Session 4"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        provider || ' | ' || 
-        strftime('%d-%m-%y %H:%M', date) || ' | $' || 
-        printf('%.2f', cost) || ' | ' || 
-        printf('%.1f', COALESCE(energy_kwh, 0)) || 'kWh | ' ||
-        substr(location, 1, 25) as session_info
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1 OFFSET 3;
-    column: "session_info"
+- name: "EV EVIE Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'EVIE Networks'
+      AND date >= date('now', '-30 days');
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  - name: "EV Recent Session 5"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        provider || ' | ' || 
-        strftime('%d-%m-%y %H:%M', date) || ' | $' || 
-        printf('%.2f', cost) || ' | ' || 
-        printf('%.1f', COALESCE(energy_kwh, 0)) || 'kWh | ' ||
-        substr(location, 1, 25) as session_info
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1 OFFSET 4;
-    column: "session_info"
+- name: "EV BP Pulse Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'BP Pulse'
+      AND date >= date('now', '-30 days');
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  # All-time totals
-  - name: "EV Total Cost"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(SUM(cost), 0) as total
-      FROM
-        charging_receipts;
-    column: "total"
-    unit_of_measurement: "AUD"
+- name: "EV Ampol Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Ampol'
+      AND date >= date('now', '-30 days');
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  - name: "EV Total Energy"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        COALESCE(SUM(energy_kwh), 0) as total
-      FROM
-        charging_receipts;
-    column: "total"
-    unit_of_measurement: "kWh"
+# =============================================================================
+# ALL-TIME TOTALS
+# =============================================================================
 
-  # Average cost per kWh
-  - name: "EV Average Cost Per kWh"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        CASE 
-          WHEN SUM(COALESCE(energy_kwh, 0)) > 0 
-          THEN ROUND(SUM(cost) / SUM(COALESCE(energy_kwh, 0)), 4)
-          ELSE 0 
-        END as avg_cost
-      FROM
-        charging_receipts;
-    column: "avg_cost"
-    unit_of_measurement: "AUD/kWh"
+- name: "EV Total Cost"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as total
+    FROM
+      charging_receipts;
+  column: "total"
+  unit_of_measurement: "AUD"
 
-  # Rounded Latest Session
-  - name: "EV Latest Cost Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(cost, 2) as cost
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1;
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV Total Energy"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(energy_kwh), 0) as total
+    FROM
+      charging_receipts;
+  column: "total"
+  unit_of_measurement: "kWh"
 
-  - name: "EV Latest Energy Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(energy_kwh, 0), 1) as energy
-      FROM
-        charging_receipts
-      ORDER BY
-        date DESC
-      LIMIT
-        1;
-    column: "energy"
-    unit_of_measurement: "kWh"
+- name: "EV Total Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts;
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  # Rounded Monthly Totals
-  - name: "EV Monthly Cost Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(SUM(cost), 0), 2) as total
-      FROM
-        charging_receipts
-      WHERE
-        date >= date('now', '-30 days');
-    column: "total"
-    unit_of_measurement: "AUD"
+# =============================================================================
+# ALL-TIME PROVIDER COSTS
+# =============================================================================
 
-  - name: "EV Monthly Energy Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(SUM(energy_kwh), 0), 1) as total
-      FROM
-        charging_receipts
-      WHERE
-        date >= date('now', '-30 days');
-    column: "total"
-    unit_of_measurement: "kWh"
+- name: "EV Tesla Total"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Tesla';
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  # Rounded Home vs Public
-  - name: "EV Home Monthly Cost Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(SUM(cost), 0), 2) as cost
-      FROM
-        charging_receipts
-      WHERE
-        source_type = 'evcc'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV Chargefox Total"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Chargefox';
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  - name: "EV Public Monthly Cost Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(SUM(cost), 0), 2) as cost
-      FROM
-        charging_receipts
-      WHERE
-        source_type IN ('email', 'tesla_pdf')
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV EVIE Total"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'EVIE Networks';
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  # Rounded Provider Costs
-  - name: "EV Tesla Monthly Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(SUM(cost), 0), 2) as cost
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'Tesla'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV BP Pulse Total"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'BP Pulse';
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  - name: "EV Chargefox Monthly Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(SUM(cost), 0), 2) as cost
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'Chargefox'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV Ampol Total"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Ampol';
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  - name: "EV EVIE Monthly Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(SUM(cost), 0), 2) as cost
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'EVIE Networks'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV Home Total Cost"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COALESCE(SUM(cost), 0) as cost
+    FROM
+      charging_receipts
+    WHERE
+      source_type = 'evcc';
+  column: "cost"
+  unit_of_measurement: "AUD"
 
-  - name: "EV BP Pulse Monthly Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(SUM(cost), 0), 2) as cost
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'BP Pulse'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+# =============================================================================
+# ALL-TIME PROVIDER SESSION COUNTS
+# =============================================================================
 
-  - name: "EV Ampol Monthly Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(SUM(cost), 0), 2) as cost
-      FROM
-        charging_receipts
-      WHERE
-        provider = 'Ampol'
-        AND date >= date('now', '-30 days');
-    column: "cost"
-    unit_of_measurement: "AUD"
+- name: "EV Tesla Total Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Tesla';
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  # Rounded All-Time Totals
-  - name: "EV Total Cost Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(SUM(cost), 0), 2) as total
-      FROM
-        charging_receipts;
-    column: "total"
-    unit_of_measurement: "AUD"
+- name: "EV Chargefox Total Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Chargefox';
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  - name: "EV Total Energy Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        ROUND(COALESCE(SUM(energy_kwh), 0), 1) as total
-      FROM
-        charging_receipts;
-    column: "total"
-    unit_of_measurement: "kWh"
+- name: "EV EVIE Total Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'EVIE Networks';
+  column: "count"
+  unit_of_measurement: "sessions"
 
-  # Rounded Average Cost per kWh
-  - name: "EV Average Cost Per kWh Rounded"
-    db_url: !secret ev_charging_db_url
-    query: >
-      SELECT
-        CASE 
-          WHEN SUM(COALESCE(energy_kwh, 0)) > 0 
-          THEN ROUND(SUM(cost) / SUM(COALESCE(energy_kwh, 0)), 4)
-          ELSE 0 
-        END as avg_cost
-      FROM
-        charging_receipts;
-    column: "avg_cost"
-    unit_of_measurement: "AUD/kWh"
+- name: "EV BP Pulse Total Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'BP Pulse';
+  column: "count"
+  unit_of_measurement: "sessions"
+
+- name: "EV Ampol Total Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Ampol';
+  column: "count"
+  unit_of_measurement: "sessions"
+
+- name: "EV Home Total Sessions"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      COUNT(*) as count
+    FROM
+      charging_receipts
+    WHERE
+      source_type = 'evcc';
+  column: "count"
+  unit_of_measurement: "sessions"
+
+# =============================================================================
+# AVERAGE COST PER KWH
+# =============================================================================
+
+- name: "EV Average Cost Per kWh"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      CASE 
+        WHEN SUM(COALESCE(energy_kwh, 0)) > 0 
+        THEN ROUND(SUM(cost) / SUM(COALESCE(energy_kwh, 0)), 4)
+        ELSE 0 
+      END as avg_cost
+    FROM
+      charging_receipts;
+  column: "avg_cost"
+  unit_of_measurement: "AUD/kWh"
+
+# =============================================================================
+# ROUNDED VALUES FOR BETTER DISPLAY
+# =============================================================================
+
+# Latest session rounded
+- name: "EV Latest Cost Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(cost, 2) as cost
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1;
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+- name: "EV Latest Energy Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(energy_kwh, 0), 1) as energy
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1;
+  column: "energy"
+  unit_of_measurement: "kWh"
+
+# Monthly totals rounded
+- name: "EV Monthly Cost Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as total
+    FROM
+      charging_receipts
+    WHERE
+      date >= date('now', '-30 days');
+  column: "total"
+  unit_of_measurement: "AUD"
+
+- name: "EV Monthly Energy Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(energy_kwh), 0), 1) as total
+    FROM
+      charging_receipts
+    WHERE
+      date >= date('now', '-30 days');
+  column: "total"
+  unit_of_measurement: "kWh"
+
+# Home vs Public rounded
+- name: "EV Home Monthly Cost Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      source_type = 'evcc'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+- name: "EV Public Monthly Cost Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      source_type IN ('email', 'tesla_pdf')
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+# Monthly provider costs rounded
+- name: "EV Tesla Monthly Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Tesla'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+- name: "EV Chargefox Monthly Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Chargefox'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+- name: "EV EVIE Monthly Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'EVIE Networks'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+- name: "EV BP Pulse Monthly Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'BP Pulse'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+- name: "EV Ampol Monthly Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Ampol'
+      AND date >= date('now', '-30 days');
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+# All-time totals rounded
+- name: "EV Total Cost Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as total
+    FROM
+      charging_receipts;
+  column: "total"
+  unit_of_measurement: "AUD"
+
+- name: "EV Total Energy Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(energy_kwh), 0), 1) as total
+    FROM
+      charging_receipts;
+  column: "total"
+  unit_of_measurement: "kWh"
+
+# All-time provider costs rounded
+- name: "EV Tesla Total Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Tesla';
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+- name: "EV Chargefox Total Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Chargefox';
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+- name: "EV EVIE Total Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'EVIE Networks';
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+- name: "EV BP Pulse Total Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'BP Pulse';
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+- name: "EV Ampol Total Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      provider = 'Ampol';
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+- name: "EV Home Total Cost Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      ROUND(COALESCE(SUM(cost), 0), 2) as cost
+    FROM
+      charging_receipts
+    WHERE
+      source_type = 'evcc';
+  column: "cost"
+  unit_of_measurement: "AUD"
+
+# Rounded average cost per kWh
+- name: "EV Average Cost Per kWh Rounded"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      CASE 
+        WHEN SUM(COALESCE(energy_kwh, 0)) > 0 
+        THEN ROUND(SUM(cost) / SUM(COALESCE(energy_kwh, 0)), 4)
+        ELSE 0 
+      END as avg_cost
+    FROM
+      charging_receipts;
+  column: "avg_cost"
+  unit_of_measurement: "AUD/kWh"
+
+# =============================================================================
+# RECENT SESSION DATA (For display purposes)
+# =============================================================================
+
+- name: "EV Recent Session 1"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      provider || ' | ' || 
+      strftime('%d-%m-%y %H:%M', date) || ' | $' || 
+      printf('%.2f', cost) || ' | ' || 
+      printf('%.1f', COALESCE(energy_kwh, 0)) || 'kWh | ' ||
+      substr(location, 1, 25) as session_info
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1;
+  column: "session_info"
+
+- name: "EV Recent Session 2"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      provider || ' | ' || 
+      strftime('%d-%m-%y %H:%M', date) || ' | $' || 
+      printf('%.2f', cost) || ' | ' || 
+      printf('%.1f', COALESCE(energy_kwh, 0)) || 'kWh | ' ||
+      substr(location, 1, 25) as session_info
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1 OFFSET 1;
+  column: "session_info"
+
+- name: "EV Recent Session 3"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      provider || ' | ' || 
+      strftime('%d-%m-%y %H:%M', date) || ' | $' || 
+      printf('%.2f', cost) || ' | ' || 
+      printf('%.1f', COALESCE(energy_kwh, 0)) || 'kWh | ' ||
+      substr(location, 1, 25) as session_info
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1 OFFSET 2;
+  column: "session_info"
+
+- name: "EV Recent Session 4"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      provider || ' | ' || 
+      strftime('%d-%m-%y %H:%M', date) || ' | $' || 
+      printf('%.2f', cost) || ' | ' || 
+      printf('%.1f', COALESCE(energy_kwh, 0)) || 'kWh | ' ||
+      substr(location, 1, 25) as session_info
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1 OFFSET 3;
+  column: "session_info"
+
+- name: "EV Recent Session 5"
+  db_url: !secret ev_charging_db_url
+  query: >
+    SELECT
+      provider || ' | ' || 
+      strftime('%d-%m-%y %H:%M', date) || ' | $' || 
+      printf('%.2f', cost) || ' | ' || 
+      printf('%.1f', COALESCE(energy_kwh, 0)) || 'kWh | ' ||
+      substr(location, 1, 25) as session_info
+    FROM
+      charging_receipts
+    ORDER BY
+      date DESC
+    LIMIT
+      1 OFFSET 4;
+  column: "session_info"

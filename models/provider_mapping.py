@@ -1,4 +1,4 @@
-"""Enhanced provider mapping and identification with Tesla email support."""
+"""Enhanced provider mapping and identification with Tesla email support and FIXED EVIE search terms."""
 from typing import Dict, List
 
 
@@ -67,13 +67,19 @@ class EnhancedProviderMapping:
     
     @classmethod
     def get_search_terms(cls) -> List[str]:
-        """Get email search terms for charging providers including Tesla."""
+        """Get email search terms for charging providers with FIXED EVIE search terms."""
         return [
-            # Tesla email search patterns - ADD THESE FIRST for priority
+            # Tesla email search patterns - FIRST for priority
             '(FROM "stevelea@gmail.com" SUBJECT "Tesla Charging")',
             '(FROM "stevelea@gmail.com" SUBJECT "tesla")',
             
-            # BP PULSE - enhanced search patterns
+            # EVIE Networks - FIXED SEARCH TERMS (ONLY RECEIPT EMAILS)
+            '(FROM "no-reply@goevie.com.au" SUBJECT "receipt")',
+            '(FROM "no-reply@goevie.com.au" SUBJECT "charging session receipt")',
+            '(FROM "no-reply@goevie.com.au" SUBJECT "tax invoice")',
+            '(FROM "no-reply@goevie.com.au" SUBJECT "invoice")',
+            
+            # BP PULSE - enhanced search patterns  
             '(FROM "DoNotReply@bppulse.com.au")',
             '(FROM "noreply@bppulse.com.au")',
             '(FROM "support@bppulse.com.au")',
@@ -81,12 +87,6 @@ class EnhancedProviderMapping:
             '(FROM "bp" SUBJECT "charging")',
             '(FROM "bp" SUBJECT "receipt")',
             '(FROM "bp" SUBJECT "session")',
-            
-            # EVIE Networks - specific receipt searches
-            '(FROM "no-reply@goevie.com.au" SUBJECT "receipt")',
-            '(FROM "no-reply@goevie.com.au" SUBJECT "invoice")', 
-            '(FROM "no-reply@goevie.com.au" SUBJECT "charging session")',
-            '(FROM "no-reply@goevie.com.au" SUBJECT "tax invoice")',
             
             # Chargefox
             'FROM "info@chargefox.com"',
@@ -144,3 +144,17 @@ class EnhancedProviderMapping:
             '(FROM "stevelea@gmail.com" SUBJECT "tesla")',
             '(FROM "stevelea@gmail.com" SUBJECT "charging")',
         ]
+    
+    @classmethod
+    def get_evie_search_terms(cls) -> List[str]:
+        """Get specific EVIE receipt search terms."""
+        return [
+            '(FROM "no-reply@goevie.com.au" SUBJECT "receipt")',
+            '(FROM "no-reply@goevie.com.au" SUBJECT "charging session receipt")', 
+            '(FROM "no-reply@goevie.com.au" SUBJECT "tax invoice")',
+            '(FROM "no-reply@goevie.com.au" SUBJECT "invoice")',
+        ]
+
+
+# Alias for backward compatibility
+ProviderMapping = EnhancedProviderMapping
