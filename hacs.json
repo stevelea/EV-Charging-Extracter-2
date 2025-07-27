@@ -4,9 +4,10 @@
   "hacs": "1.6.0",
   "domains": ["ev_charging_extractor"],
   "iot_class": "Cloud Polling",
-  "homeassistant": "2023.1.0"
+  "homeassistant": "2023.1.0",
+  "zip_release": true,
+  "filename": "ev_charging_extractor.zip"
 }
-
 # info.md  
 ## EV Charging Receipt Extractor
 
