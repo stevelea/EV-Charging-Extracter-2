@@ -1,0 +1,50 @@
+# hacs.json
+{
+  "name": "EV Charging Receipt Extractor",
+  "hacs": "1.6.0",
+  "domains": ["ev_charging_extractor"],
+  "iot_class": "Cloud Polling",
+  "homeassistant": "2023.1.0"
+}
+
+# info.md  
+## EV Charging Receipt Extractor
+
+A comprehensive Home Assistant integration that automatically extracts and processes electric vehicle charging receipts from multiple sources.
+
+### Features
+- 📧 **Multi-Provider Email Support** - Automatic processing of charging receipts from major Australian EV providers
+- 🚗 **Tesla Integration** - Processes Tesla Supercharging PDFs and emails  
+- 🏠 **EVCC Home Charging** - Integrates with EVCC systems for home charging data
+- 📊 **Advanced Analytics** - Comprehensive charging statistics and trends
+- 🛡️ **Duplicate Prevention** - Smart deduplication and data validation
+- 📁 **Export Functions** - CSV export with user-friendly formatting
+
+### Supported Providers
+- BP Pulse (Australia)
+- EVIE Networks
+- Chargefox  
+- Ampol (AmpCharge)
+- Tesla Supercharging
+- ChargePoint
+- NRMA
+- Shell Recharge
+- EVCC (Home Charging)
+
+### Requirements
+- Gmail account with app password
+- Home Assistant 2023.1+
+- Optional: EVCC installation for home charging
+
+### Quick Setup
+1. Install via HACS
+2. Add integration in Settings → Integrations
+3. Configure Gmail credentials and settings
+4. Place Tesla PDFs in `config/www/Tesla/` (optional)
+5. Configure EVCC URL if using home charging
+
+The integration will automatically create sensors, buttons, and services for managing your EV charging data.
+
+---
+
+**⚡ Track your EV charging costs and energy usage with ease!**
