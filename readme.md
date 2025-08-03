@@ -1,3 +1,5 @@
+
+![EV Charging Receipt Extractor](EV_Charging_Extractor-1.png)
 # EV Charging Receipt Extractor
 
 Mostly built with AI , no real support, use at your own risk

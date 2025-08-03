@@ -1,5 +1,5 @@
 """
-EV Charging Receipt Extractor - Complete integration with Tesla support and date correction
+EV Charging Receipt Extractor - Complete integration with Tesla support and manual-only operation
 """
 import asyncio
 import logging
@@ -11,7 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import async_track_time_change
 import homeassistant.helpers.config_validation as cv
 
 from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
@@ -37,7 +37,7 @@ SERVICE_CLEAR_AND_REPROCESS_SCHEMA = vol.Schema({
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up EV Charging Receipt Extractor from a config entry with Tesla support and date correction."""
+    """Set up EV Charging Receipt Extractor from a config entry with Tesla support and manual-only operation."""
     hass.data.setdefault(DOMAIN, {})
     
     # Combine data and options for configuration
@@ -67,8 +67,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Setup services with Tesla support and date correction
     await _async_setup_services(hass, processor)
     
-    # Schedule automatic updates
-    await _async_setup_scheduler(hass, coordinator, config)
+    # Setup automatic scheduling only if explicitly enabled
+    if config.get("schedule_enabled", False):
+        _LOGGER.info("Automatic scheduling is enabled")
+        await _async_setup_scheduler(hass, coordinator, config)
+    else:
+        _LOGGER.info("Automatic scheduling disabled - integration will only run manually via services or buttons")
     
     return True
 
@@ -134,7 +138,7 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
         """Service to trigger manual extraction with optional day override."""
         email_search_days = call.data.get("email_search_days")
         
-        _LOGGER.info("Manual extraction triggered with %s days", 
+        _LOGGER.info("🚀 Manual extraction triggered via service with %s days", 
                     email_search_days if email_search_days else "default config")
         
         try:
@@ -159,8 +163,10 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
                 }
             )
             
+            _LOGGER.info("✅ Manual extraction complete: %s", message)
+            
         except Exception as e:
-            _LOGGER.error("Error during manual extraction: %s", e)
+            _LOGGER.error("❌ Error during manual extraction: %s", e)
             await hass.services.async_call(
                 "persistent_notification",
                 "create",
@@ -175,7 +181,7 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
         """Service to debug email parsing with optional day override."""
         email_search_days = call.data.get("email_search_days", 7)
         
-        _LOGGER.info("Debug email parsing triggered with %d days", email_search_days)
+        _LOGGER.info("🔍 Debug email parsing triggered with %d days", email_search_days)
         
         try:
             await hass.async_add_executor_job(
@@ -206,7 +212,7 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
     
     async def debug_evcc_connection(call: ServiceCall):
         """Service to debug EVCC connection."""
-        _LOGGER.info("EVCC debug triggered")
+        _LOGGER.info("🔌 EVCC debug triggered")
         try:
             await hass.async_add_executor_job(processor.debug_evcc_connection)
             
@@ -234,7 +240,7 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
     
     async def debug_tesla_pdfs(call: ServiceCall):
         """Service to debug Tesla PDF processing."""
-        _LOGGER.info("Tesla PDF debug triggered")
+        _LOGGER.info("🚗 Tesla PDF debug triggered")
         try:
             await hass.async_add_executor_job(processor.debug_tesla_pdfs)
             
@@ -262,7 +268,7 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
     
     async def process_tesla_pdfs(call: ServiceCall):
         """Service to manually process Tesla PDFs only."""
-        _LOGGER.info("Manual Tesla PDF processing triggered")
+        _LOGGER.info("🚗 Manual Tesla PDF processing triggered")
         try:
             result = await hass.async_add_executor_job(processor.process_tesla_pdfs_only)
             
@@ -290,7 +296,7 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
     
     async def debug_tesla_emails(call: ServiceCall):
         """Service to debug Tesla email processing specifically."""
-        _LOGGER.info("Tesla email debug triggered")
+        _LOGGER.info("📧 Tesla email debug triggered")
         try:
             # Call the regular email debug but specifically mention Tesla emails
             await hass.async_add_executor_job(processor.debug_email_parsing, 7)
@@ -331,7 +337,7 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
             )
             return
         
-        _LOGGER.info("Date correction service triggered")
+        _LOGGER.info("📅 Date correction service triggered")
         
         try:
             result = await hass.async_add_executor_job(date_corrector.fix_receipt_dates)
@@ -393,7 +399,7 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
             )
             return
         
-        _LOGGER.info("Date analysis service triggered")
+        _LOGGER.info("🔍 Date analysis service triggered")
         
         try:
             issues = await hass.async_add_executor_job(date_corrector.analyze_date_issues)
@@ -436,7 +442,7 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
     
     async def export_to_csv(call: ServiceCall):
         """Service to export data to CSV."""
-        _LOGGER.info("CSV export triggered")
+        _LOGGER.info("📊 CSV export triggered")
         try:
             await hass.async_add_executor_job(processor.export_to_csv)
             
@@ -445,7 +451,7 @@ async def _async_setup_services(hass: HomeAssistant, processor: EVChargingProces
                 "create",
                 {
                     "title": "EV Data Export Complete",
-                    "message": "Charging data exported to CSV successfully.",
+                    "message": "Charging data exported to CSV successfully. Access at /local/ev_charging_receipts.csv",
                     "notification_id": "ev_export_complete"
                 }
             )
@@ -502,7 +508,7 @@ Last Session: {stats.get('last_session_provider', 'None')}"""
         """Service to clear all data and reprocess with optional day override."""
         email_search_days = call.data.get("email_search_days", 30)
         
-        _LOGGER.info("Clear and reprocess triggered with %d days", email_search_days)
+        _LOGGER.info("🧹 Clear and reprocess triggered with %d days", email_search_days)
         
         try:
             result = await hass.async_add_executor_job(
@@ -594,8 +600,9 @@ Last Session: {stats.get('last_session_provider', 'None')}"""
 
 
 async def _async_setup_scheduler(hass: HomeAssistant, coordinator: EVChargingDataCoordinator, config: dict) -> None:
-    """Setup automatic scheduling."""
-    if not config.get("schedule_enabled", True):
+    """Setup automatic scheduling - only runs at specific time, not every minute."""
+    if not config.get("schedule_enabled", False):
+        _LOGGER.info("Automatic scheduling is disabled")
         return
     
     schedule_hour = config.get("schedule_hour", 2)
@@ -605,12 +612,21 @@ async def _async_setup_scheduler(hass: HomeAssistant, coordinator: EVChargingDat
     
     async def scheduled_update(now):
         """Perform scheduled update."""
-        if now.hour == schedule_hour and now.minute == schedule_minute:
-            _LOGGER.info("Running scheduled EV charging extraction")
-            await coordinator.async_trigger_manual_update()
+        _LOGGER.info("🕐 Running scheduled EV charging extraction at %02d:%02d", 
+                    now.hour, now.minute)
+        await coordinator.async_trigger_manual_update()
     
-    # Check every minute if it's time for scheduled update
-    async_track_time_interval(hass, scheduled_update, timedelta(minutes=1))
+    # Use time-based trigger instead of interval checking to avoid running every minute
+    async_track_time_change(
+        hass, 
+        scheduled_update, 
+        hour=schedule_hour, 
+        minute=schedule_minute, 
+        second=0
+    )
+    
+    _LOGGER.info("✅ Scheduled daily processing set up for %02d:%02d (will not run every minute)", 
+                schedule_hour, schedule_minute)
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:

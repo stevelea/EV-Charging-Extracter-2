@@ -1,4 +1,4 @@
-"""Sensor platform for EV Charging Extractor with enhanced date formatting."""
+"""Sensor platform for EV Charging Extractor - MANUAL UPDATES ONLY."""
 import logging
 from datetime import datetime, timedelta
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -42,7 +42,7 @@ async def async_setup_entry(
 
 
 class EVChargingBaseSensor(SensorEntity):
-    """Base class for EV charging sensors."""
+    """Base class for EV charging sensors - MANUAL UPDATES ONLY."""
     
     def __init__(self, coordinator, processor, config_entry, sensor_type):
         """Initialize the sensor."""
@@ -51,6 +51,9 @@ class EVChargingBaseSensor(SensorEntity):
         self._config_entry = config_entry
         self._sensor_type = sensor_type
         self._attr_unique_id = f"{config_entry.entry_id}_{sensor_type}"
+        
+        # CRITICAL: Set should_poll to False to prevent automatic polling
+        self._attr_should_poll = False
         
     @property
     def device_info(self):
@@ -68,9 +71,18 @@ class EVChargingBaseSensor(SensorEntity):
         """Return if sensor is available."""
         return self._coordinator.last_update_success
     
+    async def async_added_to_hass(self):
+        """When entity is added to hass."""
+        # Add listener for coordinator updates
+        self.async_on_remove(
+            self._coordinator.async_add_listener(self.async_write_ha_state)
+        )
+        
     async def async_update(self):
-        """Update the sensor."""
-        await self._coordinator.async_request_refresh()
+        """Update the sensor - ONLY called manually, does NOT trigger email processing."""
+        # DO NOT call coordinator refresh here - this prevents continuous processing
+        # The sensors will update when the coordinator data changes from manual triggers
+        _LOGGER.debug("🔍 Sensor %s update called - using existing coordinator data", self._sensor_type)
 
 
 class EVChargingTotalReceiptsSensor(EVChargingBaseSensor):
@@ -86,6 +98,8 @@ class EVChargingTotalReceiptsSensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 0
         stats = self._coordinator.data.get('stats', {})
         return stats.get('total_receipts', 0)
 
@@ -104,6 +118,8 @@ class EVChargingTotalCostSensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 0
         stats = self._coordinator.data.get('stats', {})
         cost = stats.get('total_cost', 0)
         return round(cost, 2) if cost else 0
@@ -123,6 +139,8 @@ class EVChargingTotalEnergySensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 0
         stats = self._coordinator.data.get('stats', {})
         energy = stats.get('total_energy', 0)
         return round(energy, 2) if energy else 0
@@ -141,6 +159,8 @@ class EVChargingMonthlyCostSensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 0
         stats = self._coordinator.data.get('stats', {})
         cost = stats.get('monthly_cost', 0)
         return round(cost, 2) if cost else 0
@@ -159,6 +179,8 @@ class EVChargingMonthlyEnergySensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 0
         stats = self._coordinator.data.get('stats', {})
         energy = stats.get('monthly_energy', 0)
         return round(energy, 2) if energy else 0
@@ -177,6 +199,8 @@ class EVChargingAverageCostPerKwhSensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 0
         stats = self._coordinator.data.get('stats', {})
         avg_cost = stats.get('average_cost_per_kwh', 0)
         return round(avg_cost, 4) if avg_cost else 0
@@ -194,6 +218,8 @@ class EVChargingLastSessionProviderSensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 'None'
         stats = self._coordinator.data.get('stats', {})
         return stats.get('last_session_provider', 'None')
 
@@ -211,6 +237,8 @@ class EVChargingLastSessionCostSensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 0
         stats = self._coordinator.data.get('stats', {})
         cost = stats.get('last_session_cost', 0)
         return round(cost, 2) if cost else 0
@@ -228,6 +256,9 @@ class EVChargingLastSessionDateSensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 'None'
+            
         stats = self._coordinator.data.get('stats', {})
         last_date = stats.get('last_session_date')
         
@@ -263,6 +294,8 @@ class EVChargingLastSessionEnergySensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 0
         stats = self._coordinator.data.get('stats', {})
         energy = stats.get('last_session_energy', 0)
         return round(energy, 2) if energy else 0
@@ -280,6 +313,8 @@ class EVChargingTopProviderSensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 'None'
         stats = self._coordinator.data.get('stats', {})
         return stats.get('top_provider', 'None')
 
@@ -297,6 +332,8 @@ class EVChargingHomeCostSensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 0
         stats = self._coordinator.data.get('stats', {})
         cost = stats.get('home_monthly_cost', 0)
         return round(cost, 2) if cost else 0
@@ -315,6 +352,8 @@ class EVChargingPublicCostSensor(EVChargingBaseSensor):
     @property
     def native_value(self):
         """Return the state of the sensor."""
+        if not self._coordinator.data:
+            return 0
         stats = self._coordinator.data.get('stats', {})
         cost = stats.get('public_monthly_cost', 0)
         return round(cost, 2) if cost else 0
