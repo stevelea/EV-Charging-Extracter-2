@@ -121,13 +121,29 @@ class EVChargingProcessor:
         self.email_processor.gmail_password = self.gmail_password
         self.email_processor.default_currency = self.default_currency
         self.email_processor.verbose_logging = self.verbose_logging
-        
-        if self.evcc_processor:
-            self.evcc_processor.evcc_url = self.evcc_url
-            self.evcc_processor.evcc_enabled = self.evcc_enabled
-            self.evcc_processor.home_electricity_rate = self.home_electricity_rate
-            self.evcc_processor.default_currency = self.default_currency
-            self.evcc_processor.verbose_logging = self.verbose_logging
+
+        # Ensure EVCC processor state matches configuration
+        if self.evcc_enabled:
+            if not self.evcc_processor:
+                # Create processor when enabling EVCC after initialization
+                self.evcc_processor = EVCCProcessor(
+                    self.evcc_url,
+                    self.evcc_enabled,
+                    self.home_electricity_rate,
+                    self.database_manager,
+                    self.default_currency,
+                    self.verbose_logging,
+                )
+            else:
+                # Update existing processor with new settings
+                self.evcc_processor.evcc_url = self.evcc_url
+                self.evcc_processor.evcc_enabled = self.evcc_enabled
+                self.evcc_processor.home_electricity_rate = self.home_electricity_rate
+                self.evcc_processor.default_currency = self.default_currency
+                self.evcc_processor.verbose_logging = self.verbose_logging
+        else:
+            # Disable EVCC processor when feature is turned off
+            self.evcc_processor = None
         
         if self.tesla_processor:
             self.tesla_processor.default_currency = self.default_currency
