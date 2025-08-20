@@ -2,7 +2,7 @@
 ![EV Charging Receipt Extractor](EV_Charging_Extractor-1.png)
 # EV Charging Receipt Extractor
 
-Mostly built with AI , no real support, use at your own risk
+Mostly built with AI, no real support, use at your own risk
 
 A comprehensive Home Assistant custom integration that automatically extracts and processes electric vehicle charging receipts from multiple sources including email providers, Tesla PDFs, and EVCC home charging systems.
 
