@@ -31,9 +31,6 @@ class EVChargingDataCoordinator(DataUpdateCoordinator):
             # CRITICAL: Set to None to prevent automatic updates
             update_interval=None,
         )
-        
-        # Track if we should actually process emails
-        self._manual_processing_enabled = False
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Update data - ONLY updates stats, NO email processing unless manually triggered."""
@@ -63,11 +60,8 @@ class EVChargingDataCoordinator(DataUpdateCoordinator):
     async def async_trigger_manual_update(self) -> dict[str, Any]:
         """Trigger a manual update with FULL email processing."""
         _LOGGER.info("🚀 Manual email processing triggered via coordinator")
-        
+
         try:
-            # Set flag to indicate manual processing
-            self._manual_processing_enabled = True
-            
             # Run the actual email processing
             result = await self.hass.async_add_executor_job(
                 self.processor.process_emails
@@ -84,10 +78,7 @@ class EVChargingDataCoordinator(DataUpdateCoordinator):
                 "stats": stats,
                 "last_update": self.hass.loop.time(),
             }
-            
-            # Reset flag
-            self._manual_processing_enabled = False
-            
+
             # Notify listeners of the update
             self.async_update_listeners()
             
@@ -99,7 +90,6 @@ class EVChargingDataCoordinator(DataUpdateCoordinator):
             return self.data
             
         except Exception as err:
-            self._manual_processing_enabled = False
             _LOGGER.error("❌ Error in manual email processing: %s", err)
             raise UpdateFailed(f"Error in manual email processing: {err}") from err
 
