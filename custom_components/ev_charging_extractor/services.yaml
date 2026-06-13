@@ -66,3 +66,7 @@ debug_tesla_pdfs:
 process_tesla_pdfs:
   name: Process Tesla PDFs
   description: Manually process Tesla PDF receipts from www/Tesla directory
+
+export_to_influxdb:
+  name: Export to InfluxDB
+  description: Write all charging receipts to InfluxDB (upsert). Requires InfluxDB enabled in the integration Options.

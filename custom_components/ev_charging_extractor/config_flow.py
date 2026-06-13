@@ -41,6 +41,16 @@ from .const import (
     DEFAULT_SCHEDULE_ENABLED,
     DEFAULT_SCHEDULE_HOUR,
     DEFAULT_SCHEDULE_MINUTE,
+    CONF_INFLUXDB_ENABLED,
+    CONF_INFLUXDB_HOST,
+    CONF_INFLUXDB_PORT,
+    CONF_INFLUXDB_DATABASE,
+    CONF_INFLUXDB_USERNAME,
+    CONF_INFLUXDB_PASSWORD,
+    DEFAULT_INFLUXDB_ENABLED,
+    DEFAULT_INFLUXDB_HOST,
+    DEFAULT_INFLUXDB_PORT,
+    DEFAULT_INFLUXDB_DATABASE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -260,6 +270,30 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_EVCC_URL,
                     default=current_config.get(CONF_EVCC_URL, DEFAULT_EVCC_URL)
+                ): str,
+                vol.Optional(
+                    CONF_INFLUXDB_ENABLED,
+                    default=current_config.get(CONF_INFLUXDB_ENABLED, DEFAULT_INFLUXDB_ENABLED)
+                ): bool,
+                vol.Optional(
+                    CONF_INFLUXDB_HOST,
+                    default=current_config.get(CONF_INFLUXDB_HOST, DEFAULT_INFLUXDB_HOST)
+                ): str,
+                vol.Optional(
+                    CONF_INFLUXDB_PORT,
+                    default=current_config.get(CONF_INFLUXDB_PORT, DEFAULT_INFLUXDB_PORT)
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
+                vol.Optional(
+                    CONF_INFLUXDB_DATABASE,
+                    default=current_config.get(CONF_INFLUXDB_DATABASE, DEFAULT_INFLUXDB_DATABASE)
+                ): str,
+                vol.Optional(
+                    CONF_INFLUXDB_USERNAME,
+                    default=current_config.get(CONF_INFLUXDB_USERNAME, "")
+                ): str,
+                vol.Optional(
+                    CONF_INFLUXDB_PASSWORD,
+                    default=current_config.get(CONF_INFLUXDB_PASSWORD, "")
                 ): str,
             }
         )

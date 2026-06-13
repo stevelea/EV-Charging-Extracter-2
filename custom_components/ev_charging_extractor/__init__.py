@@ -100,6 +100,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "debug_email_parsing", 
         "debug_evcc_connection",
         "export_to_csv",
+        "export_to_influxdb",
         "get_database_stats",
         "clear_and_reprocess",
         "debug_tesla_pdfs",
@@ -585,8 +586,26 @@ Last Session: {stats.get('last_session_provider', 'None')}"""
     hass.services.async_register(
         DOMAIN, "analyze_date_issues", analyze_date_issues
     )
+    async def export_to_influxdb(call: ServiceCall):
+        """Service to export all receipts to InfluxDB."""
+        _LOGGER.info("📈 InfluxDB export triggered")
+        try:
+            result = await hass.async_add_executor_job(processor.export_to_influxdb)
+            await hass.services.async_call(
+                "persistent_notification", "create",
+                {"title": "EV Charging - InfluxDB Export",
+                 "message": f"Wrote {result.get('written', 0)} points "
+                            f"({result.get('skipped', 0)} skipped), ok={result.get('ok')}."},
+                blocking=False,
+            )
+        except Exception as e:
+            _LOGGER.error("InfluxDB export service failed: %s", e)
+
     hass.services.async_register(
         DOMAIN, "export_to_csv", export_to_csv
+    )
+    hass.services.async_register(
+        DOMAIN, "export_to_influxdb", export_to_influxdb
     )
     hass.services.async_register(
         DOMAIN, "get_database_stats", get_database_stats

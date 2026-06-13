@@ -13,6 +13,10 @@ from .const import (
     CONF_HOME_ELECTRICITY_RATE, CONF_DEFAULT_CURRENCY, CONF_DUPLICATE_PREVENTION,
     CONF_VERBOSE_LOGGING, CONF_MINIMUM_COST_THRESHOLD, CONF_EMAIL_SEARCH_DAYS_BACK,
     CONF_AUTO_EXPORT_CSV, DEFAULT_EVCC_URL, DEFAULT_EVCC_ENABLED,
+    CONF_INFLUXDB_ENABLED, CONF_INFLUXDB_HOST, CONF_INFLUXDB_PORT,
+    CONF_INFLUXDB_DATABASE, CONF_INFLUXDB_USERNAME, CONF_INFLUXDB_PASSWORD,
+    CONF_INFLUXDB_MEASUREMENT, DEFAULT_INFLUXDB_ENABLED, DEFAULT_INFLUXDB_HOST,
+    DEFAULT_INFLUXDB_PORT, DEFAULT_INFLUXDB_DATABASE, DEFAULT_INFLUXDB_MEASUREMENT,
     DEFAULT_HOME_ELECTRICITY_RATE, DEFAULT_CURRENCY, DEFAULT_DUPLICATE_PREVENTION,
     DEFAULT_VERBOSE_LOGGING, DEFAULT_MINIMUM_COST_THRESHOLD,
     DEFAULT_EMAIL_SEARCH_DAYS_BACK, DEFAULT_AUTO_EXPORT_CSV
@@ -101,6 +105,21 @@ class EVChargingProcessor:
                 _LOGGER.warning("Could not initialize Tesla PDF processor: %s", e)
         
         self.export_utils = ExportUtils(self.csv_path, self.database_manager)
+
+        # InfluxDB exporter (optional)
+        self.influxdb_enabled = config.get(CONF_INFLUXDB_ENABLED, DEFAULT_INFLUXDB_ENABLED)
+        self.influxdb_exporter = None
+        if self.influxdb_enabled:
+            from .utils.influx_export import InfluxExporter
+            self.influxdb_exporter = InfluxExporter(
+                host=config.get(CONF_INFLUXDB_HOST, DEFAULT_INFLUXDB_HOST),
+                port=config.get(CONF_INFLUXDB_PORT, DEFAULT_INFLUXDB_PORT),
+                database=config.get(CONF_INFLUXDB_DATABASE, DEFAULT_INFLUXDB_DATABASE),
+                username=config.get(CONF_INFLUXDB_USERNAME, ''),
+                password=config.get(CONF_INFLUXDB_PASSWORD, ''),
+                measurement=config.get(CONF_INFLUXDB_MEASUREMENT, DEFAULT_INFLUXDB_MEASUREMENT),
+                verbose=self.verbose_logging,
+            )
 
     def update_config(self, new_config: dict):
         """Update configuration settings."""
@@ -193,6 +212,13 @@ class EVChargingProcessor:
                     self.export_to_csv()
                 except Exception as e:
                     _LOGGER.warning("Failed to auto-export CSV: %s", e)
+
+            # Export to InfluxDB if enabled
+            if self.influxdb_enabled:
+                try:
+                    self.export_to_influxdb()
+                except Exception as e:
+                    _LOGGER.warning("Failed to export to InfluxDB: %s", e)
             
             total_receipts = results['new_email_receipts'] + results['new_tesla_receipts']
             _LOGGER.info("Processing complete: %d email receipts, %d Tesla receipts, %d EVCC sessions", 
@@ -203,6 +229,16 @@ class EVChargingProcessor:
             results['errors'].append(str(e))
         
         return results
+
+    def export_to_influxdb(self):
+        """Export all receipts to InfluxDB (upsert; safe to run every cycle)."""
+        if not self.influxdb_exporter:
+            return {"written": 0, "ok": False, "error": "InfluxDB export disabled"}
+        receipts = self.database_manager.get_all_receipts_with_hash()
+        result = self.influxdb_exporter.export(receipts)
+        _LOGGER.info("InfluxDB export: %d points written, %d skipped, ok=%s",
+                     result.get("written", 0), result.get("skipped", 0), result.get("ok"))
+        return result
 
     def process_tesla_pdfs_only(self):
         """Process only Tesla PDFs from directory."""
