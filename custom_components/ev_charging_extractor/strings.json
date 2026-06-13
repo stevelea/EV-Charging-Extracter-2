@@ -1,0 +1,48 @@
+{
+  "options": {
+    "step": {
+      "init": {
+        "title": "EV Charging Extractor Options",
+        "data": {
+          "email_search_days_back": "Email search days back",
+          "minimum_cost_threshold": "Minimum cost threshold",
+          "home_electricity_rate": "Home electricity rate (per kWh)",
+          "duplicate_prevention": "Duplicate prevention",
+          "verbose_logging": "Verbose logging",
+          "auto_export_csv": "Auto-export to CSV",
+          "schedule_enabled": "Enable daily schedule",
+          "schedule_hour": "Schedule hour (0-23)",
+          "schedule_minute": "Schedule minute (0-59)",
+          "evcc_enabled": "Enable EVCC (home charging)",
+          "evcc_url": "EVCC URL",
+          "influxdb_enabled": "Enable InfluxDB export",
+          "influxdb_host": "InfluxDB host",
+          "influxdb_port": "InfluxDB port",
+          "influxdb_database": "InfluxDB database",
+          "influxdb_username": "InfluxDB username (optional)",
+          "influxdb_password": "InfluxDB password (optional)"
+        },
+        "data_description": {
+          "influxdb_enabled": "Write each processed charging receipt to InfluxDB after every run.",
+          "influxdb_host": "Hostname of your InfluxDB 1.x server (e.g. a0d7b954-influxdb for the HA add-on).",
+          "influxdb_database": "Target database. Points are written to the 'charge_receipt' measurement.",
+          "influxdb_username": "Leave blank if your InfluxDB has authentication disabled."
+        }
+      }
+    }
+  },
+  "services": {
+    "export_to_influxdb": {
+      "name": "Export to InfluxDB",
+      "description": "Write all charging receipts to InfluxDB (upsert). Requires InfluxDB enabled in Options."
+    },
+    "export_to_csv": {
+      "name": "Export to CSV",
+      "description": "Export all charging data to a CSV file."
+    },
+    "trigger_extraction": {
+      "name": "Trigger manual extraction",
+      "description": "Manually process EV charging emails and EVCC data."
+    }
+  }
+}

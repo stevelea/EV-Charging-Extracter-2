@@ -347,6 +347,24 @@ class DatabaseManager:
         except Exception as e:
             _LOGGER.error("Error getting receipts for export: %s", e)
             return []
+
+    def get_all_receipts_with_hash(self) -> List[Dict[str, Any]]:
+        """Get all receipts including hash_id (stable upsert key for InfluxDB export)."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT provider, date, location, cost, currency, energy_kwh, "
+                "session_duration, source_type, hash_id, created_at "
+                "FROM charging_receipts ORDER BY date DESC"
+            )
+            rows = cursor.fetchall()
+            conn.close()
+            return [dict(row) for row in rows]
+        except Exception as e:
+            _LOGGER.error("Error getting receipts with hash for export: %s", e)
+            return []
     
     def mark_email_processed(self, email_hash: str, subject: str = "") -> bool:
         """Mark an email as processed."""
